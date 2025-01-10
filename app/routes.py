@@ -441,7 +441,7 @@ def register_routes(app):
                         # Extract scanner-specific results and calculate risk score
                         try:
                             process_info = dynamic_results.get('moneta', {}).get('findings', {}).get('process_info', {})
-                            risk_score, risk_factors = utils.calculate_process_risk(dynamic_results)
+                            risk_score, risk_factors = utils.calculate_risk(dynamic_results)
                             risk_level = utils.get_risk_level(risk_score)
 
                             yara_matches = dynamic_results.get('yara', {}).get('matches', [])
@@ -527,7 +527,7 @@ def register_routes(app):
 
                 # Calculate risk score
                 try:
-                    risk_score, risk_factors = utils.calculate_file_risk(file_info, static_results, dynamic_results)
+                    risk_score, risk_factors = utils.calculate_risk(file_info, static_results, dynamic_results)
                     risk_level = utils.get_risk_level(risk_score)
                     file_based_summary[item] = {
                         'md5': file_info.get('md5', 'unknown'),
