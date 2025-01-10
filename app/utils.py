@@ -497,14 +497,15 @@ class Utils:
 
         return normalized_score, risk_factors
 
-    def calculate_file_risk(self, file_info, static_results=None, dynamic_results=None):
+    def calculate_risk(self, analysis_type='process', file_info=None, static_results=None, dynamic_results=None):
         """
-        Calculate overall file risk score with enhanced static analysis impact.
+        Unified risk calculation function that handles both file and process analysis.
         
         Args:
-            file_info (dict): Information about the file.
-            static_results (dict, optional): Static analysis results.
-            dynamic_results (dict, optional): Dynamic analysis results.
+            analysis_type (str): Type of analysis - 'file' or 'process'
+            file_info (dict, optional): Information about the file, required for 'file' analysis
+            static_results (dict, optional): Static analysis results
+            dynamic_results (dict, optional): Dynamic analysis results
         
         Returns:
             tuple: (risk_score, risk_factors)
@@ -512,15 +513,20 @@ class Utils:
         risk_score = 0
         risk_factors = []
         
-        # Adjusted weights to minimize PE info impact
+        # Define weights based on analysis type
         WEIGHTS = {
-            'pe_info': 0.10,    # Minimal impact
-            'static': 0.50,     # Maintain high static analysis weight
-            'dynamic': 0.40     # Slightly increased
-        }
+            'file': {
+                'pe_info': 0.10,
+                'static': 0.50,
+                'dynamic': 0.40
+            },
+            'process': {
+                'dynamic': 1.0
+            }
+        }[analysis_type]
         
-        # 1. PE Information Risk Calculation
-        if file_info.get('pe_info'):
+        # 1. PE Information Risk Calculation (file analysis only)
+        if analysis_type == 'file' and file_info and file_info.get('pe_info'):
             pe_risk = 0
             pe_info = file_info['pe_info']
             
@@ -529,7 +535,7 @@ class Utils:
             very_high_entropy_sections = 0
             for section in pe_info.get('sections', []):
                 entropy = section.get('entropy', 0)
-                if entropy > 7.5:  # Very high entropy threshold
+                if entropy > 7.5:
                     very_high_entropy_sections += 1
                     risk_factors.append(f"Critical entropy in section {section.get('name', 'UNKNOWN')}: {entropy:.2f}")
                 elif entropy > 7.0:
@@ -541,17 +547,15 @@ class Utils:
             # Enhanced import analysis
             suspicious_imports = pe_info.get('suspicious_imports', [])
             if suspicious_imports:
-                # Categorize imports based on their risk level
                 critical_functions = {
-                    'createremotethread', 'virtualallocex', 'writeprocessmemory',  # Process injection
-                    'ntmapviewofsection', 'zwmapviewofsection'  # Memory mapping
+                    'createremotethread', 'virtualallocex', 'writeprocessmemory',
+                    'ntmapviewofsection', 'zwmapviewofsection'
                 }
                 high_risk_functions = {
-                    'loadlibrarya', 'loadlibraryw', 'getprocaddress',  # Dynamic loading
-                    'openprocess', 'virtualallocexnuma'  # Process manipulation
+                    'loadlibrarya', 'loadlibraryw', 'getprocaddress',
+                    'openprocess', 'virtualallocexnuma'
                 }
                 
-                # Count imports by severity based on function names
                 critical_imports = sum(1 for imp in suspicious_imports 
                                     if imp.get('function', '').lower() in critical_functions)
                 high_risk_imports = sum(1 for imp in suspicious_imports 
@@ -565,23 +569,21 @@ class Utils:
             if pe_info.get('checksum_info'):
                 checksum = pe_info['checksum_info']
                 if checksum.get('stored_checksum') != checksum.get('calculated_checksum'):
-                    pe_risk += 25  # Reduced impact
+                    pe_risk += 25
                     risk_factors.append("PE checksum mismatch detected")
             
             risk_score += (pe_risk / 100) * WEIGHTS['pe_info'] * 100
 
-        # 2. Enhanced Static Analysis Risk Calculation
-        if static_results:
+        # 2. Static Analysis Risk Calculation (file analysis only)
+        if analysis_type == 'file' and static_results:
             static_risk = 0
             
             # Enhanced YARA detection scoring
             yara_matches = static_results.get('yara', {}).get('matches', [])
             yara_score, yara_factors = self.calculate_yara_risk(yara_matches)
             if yara_score > 0:
-                # Apply multiplier for multiple matching rules
-                match_multiplier = min(len(yara_matches) * 0.15 + 1, 1.5)  # Up to 50% boost
+                match_multiplier = min(len(yara_matches) * 0.15 + 1, 1.5)
                 static_risk += yara_score * match_multiplier
-                # Directly use the yara_factors which already include severity
                 risk_factors.extend([f"Static: {factor}" for factor in yara_factors])
             
             # Enhanced CheckPLZ analysis
@@ -592,7 +594,6 @@ class Utils:
                     threat_score += 50
                     risk_factors.append("Critical: CheckPLZ detected initial threat indicators")
                 
-                # Additional CheckPLZ indicators
                 indicators = checkplz_findings.get('threat_indicators', [])
                 if indicators:
                     indicator_score = min(len(indicators) * 15, 40)
@@ -613,9 +614,7 @@ class Utils:
             
             risk_score += (static_risk / 100) * WEIGHTS['static'] * 100
 
-
-                
-        # 3. Dynamic Analysis Risk Calculation
+        # 3. Dynamic Analysis Risk Calculation (both file and process)
         if dynamic_results:
             dynamic_risk = 0
             
@@ -624,28 +623,24 @@ class Utils:
             yara_score, yara_factors = self.calculate_yara_risk(yara_matches)
             if yara_score > 0:
                 dynamic_risk += yara_score
-                # Similarly for dynamic, use the factors directly
                 risk_factors.extend([f"Dynamic: {factor}" for factor in yara_factors])
             
             # Enhanced PE-Sieve scoring
             pesieve_findings = dynamic_results.get('pe_sieve', {}).get('findings', {})
             pesieve_suspicious = int(pesieve_findings.get('total_suspicious', 0))
             if pesieve_suspicious > 0:
-                severity_multiplier = 1.0
-                if pesieve_findings.get('severity') == 'critical':
-                    severity_multiplier = 1.5
-                
-                pe_sieve_score = min(pesieve_suspicious * 20 * severity_multiplier, 45)
+                severity_multiplier = 1.5 if pesieve_findings.get('severity') == 'critical' else 1.0
+                pe_sieve_score = min(pesieve_suspicious * (20 if analysis_type == 'file' else 15) * severity_multiplier,
+                                   45 if analysis_type == 'file' else 30)
                 dynamic_risk += pe_sieve_score
                 risk_factors.append(f"PE-Sieve found {pesieve_suspicious} suspicious indicators")
             
             # Enhanced memory anomaly detection
             moneta_findings = dynamic_results.get('moneta', {}).get('findings', {})
             if moneta_findings:
-                # Weight different types of anomalies
                 memory_scores = {
-                    'total_private_rwx': 15,        # Highest risk
-                    'total_modified_code': 12,
+                    'total_private_rwx': 15 if analysis_type == 'file' else 10,
+                    'total_modified_code': 12 if analysis_type == 'file' else 10,
                     'total_heap_executable': 10,
                     'total_modified_pe_header': 10,
                     'total_private_rx': 8,
@@ -660,11 +655,11 @@ class Utils:
                 for key, weight in memory_scores.items():
                     count = int(moneta_findings.get(key, 0) or 0)
                     if count > 0:
-                        total_score += min(count * weight, weight * 2)  # Cap each type
+                        total_score += min(count * weight, weight * 2)
                         anomaly_count += count
                 
                 if anomaly_count > 0:
-                    dynamic_risk += min(total_score, 40)  # Overall cap
+                    dynamic_risk += min(total_score, 40 if analysis_type == 'file' else 30)
                     risk_factors.append(f"Found {anomaly_count} weighted memory anomalies")
             
             # Enhanced behavior analysis
@@ -674,9 +669,8 @@ class Utils:
                 behavior_count = len(behaviors)
                 
                 if behavior_count > 0:
-                    # Weight by severity
                     severity_scores = {
-                        'critical': 25,
+                        'critical': 25 if analysis_type == 'file' else 20,
                         'high': 15,
                         'medium': 10,
                         'low': 5
@@ -697,115 +691,43 @@ class Utils:
                 for detection in hsb_findings['detections']:
                     if detection.get('findings'):
                         count = len(detection['findings'])
-                        severity = detection.get('max_severity', 1)
+                        severity = detection.get('max_severity', 0)
                         
-                        # Weight by severity
-                        severity_multiplier = 1 + (severity * 0.5)  # 1.5x for severity 1, 2x for severity 2, etc.
-                        detection_score = min(count * 15 * severity_multiplier, 40)
+                        if analysis_type == 'file':
+                            severity_multiplier = 1 + (severity * 0.5)
+                            detection_score = min(count * 15 * severity_multiplier, 40)
+                        else:
+                            if severity == 0:  # LOW
+                                detection_score = min(count * 10, 20)
+                            elif severity == 1:  # MID
+                                detection_score = min(count * 15, 25)
+                            else:  # HIGH
+                                detection_score = min(count * 20, 35)
                         
                         total_hsb_score += detection_score
                         
+                        severity_text = "LOW" if severity == 0 else "MID" if severity == 1 else "HIGH"
                         if severity >= 2:
                             risk_factors.append(f"Critical: Found {count} high-severity memory operations")
                         else:
-                            risk_factors.append(f"Found {count} suspicious memory operations")
+                            risk_factors.append(f"Found {count} {severity_text} severity memory operations")
                 
-                dynamic_risk += min(total_hsb_score, 45)
+                dynamic_risk += min(total_hsb_score, 45 if analysis_type == 'file' else 35)
             
             risk_score += (dynamic_risk / 100) * WEIGHTS['dynamic'] * 100
 
-        # Normalize final score and apply exponential weighting for high-risk factors
-        base_score = min(max(risk_score, 0), 100)
-        if base_score > 75:  # High-risk threshold
+        # Final normalization and scaling
+        if analysis_type == 'file':
             # Apply exponential scaling to high scores
-            risk_score = min(base_score * 1.15, 100)
-        
-        return round(risk_score, 2), risk_factors
-
-    def calculate_process_risk(self, dynamic_results):
-        """
-        Calculate risk score for process-based analysis using only dynamic results.
-        Improved to provide more accurate risk assessment.
-        
-        Args:
-            dynamic_results (dict): Dynamic analysis results from process scanning
-            
-        Returns:
-            tuple: (risk_score, risk_factors)
-        """
-        risk_score = 0
-        risk_factors = []
-        
-        if not dynamic_results:
-            return 0, []
-
-        # YARA detections (high impact)
-        yara_matches = dynamic_results.get('yara', {}).get('matches', [])
-        yara_score, yara_factors = self.calculate_yara_risk(yara_matches)
-        if yara_score > 0:
-            risk_score += yara_score  # Direct addition as YARA indicates high risk
-            risk_factors.extend([f"Dynamic: {factor}" for factor in yara_factors])
-        
-        # PE-Sieve detections (moderate impact)
-        pesieve_findings = dynamic_results.get('pe_sieve', {}).get('findings', {})
-        pesieve_suspicious = int(pesieve_findings.get('total_suspicious', 0))
-        if pesieve_suspicious > 0:
-            # Adjusted to give moderate weight - single suspicious item shouldn't trigger high risk
-            risk_score += min(pesieve_suspicious * 15, 30)  # Reduced from 25/50 to 15/30
-            risk_factors.append(f"PE-Sieve found {pesieve_suspicious} suspicious modifications")
-        
-        # Moneta memory anomalies
-        moneta_findings = dynamic_results.get('moneta', {}).get('findings', {})
-        memory_anomalies = sum([
-            int(moneta_findings.get('total_private_rwx', 0) or 0),
-            int(moneta_findings.get('total_private_rx', 0) or 0),
-            int(moneta_findings.get('total_modified_code', 0) or 0),
-            int(moneta_findings.get('total_heap_executable', 0) or 0),
-            int(moneta_findings.get('total_modified_pe_header', 0) or 0),
-            int(moneta_findings.get('total_inconsistent_x', 0) or 0),
-            int(moneta_findings.get('total_missing_peb', 0) or 0),
-            int(moneta_findings.get('total_mismatching_peb', 0) or 0)
-        ])
-        if memory_anomalies > 0:
-            risk_score += min(memory_anomalies * 10, 30)  # Reduced from 15/40 to 10/30
-            risk_factors.append(f"Found {memory_anomalies} memory anomalies")
-        
-        # Patriot detections
-        patriot_findings = len(dynamic_results.get('patriot', {})
-            .get('findings', {}).get('findings', []))
-        if patriot_findings > 0:
-            risk_score += min(patriot_findings * 15, 35)  # Reduced from 20/40 to 15/35
-            risk_factors.append(f"Found {patriot_findings} suspicious behaviors")
-        
-        # HSB detections with proper severity handling
-        hsb_findings = dynamic_results.get('hsb', {}).get('findings', {})
-        if hsb_findings and hsb_findings.get('detections'):
-            for detection in hsb_findings['detections']:
-                if detection.get('findings'):
-                    hsb_detections = len(detection['findings'])
-                    max_severity = detection.get('max_severity', 0)
-                    
-                    # Adjust scoring based on severity
-                    if max_severity == 0:  # LOW
-                        score = min(hsb_detections * 10, 20)
-                    elif max_severity == 1:  # MID
-                        score = min(hsb_detections * 15, 25)
-                    else:  # HIGH
-                        score = min(hsb_detections * 20, 35)
-                    
-                    risk_score += score
-                    severity_text = "LOW" if max_severity == 0 else "MID" if max_severity == 1 else "HIGH"
-                    risk_factors.append(f"Found {hsb_detections} {severity_text} severity memory operations")
-
-        # Final normalization with more granular scaling
-        if risk_score > 0:
-            # Ensure single low/mid severity findings don't trigger high risk
+            base_score = min(max(risk_score, 0), 100)
+            if base_score > 75:
+                risk_score = min(base_score * 1.15, 100)
+        else:  # process
             if max(yara_score, 0) == 0 and pesieve_suspicious <= 1:
-                risk_score = min(risk_score, 65)  # Cap at 65 if no YARA matches and only minor PE-Sieve findings
-                
-            # Additional cap for low severity combinations
+                risk_score = min(risk_score, 65)
+            
             if all(f.lower().find('high') == -1 for f in risk_factors):
-                risk_score = min(risk_score, 75)  # Cap at 75 if no high severity findings
+                risk_score = min(risk_score, 75)
         
         return round(min(max(risk_score, 0), 100), 2), risk_factors
 
