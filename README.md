@@ -166,9 +166,9 @@ This project incorporates the following open-source components and acknowledges 
 
 ## Screenshots
 
-![upload](https://github.com/user-attachments/assets/4c0c134c-66b3-4172-9125-5b1d7ba8d99c)
+![upload](https://github.com/user-attachments/assets/26ab6f33-4746-41c7-82cd-ee490d57ad95)
 
-![dynamic](https://github.com/user-attachments/assets/61813e54-bdbc-48ff-8340-9991870e363a)
+![dynamic](https://github.com/user-attachments/assets/02202021-f7e0-47a2-a993-2655da36dfde)
 
 ![static](https://github.com/user-attachments/assets/9f10cff2-e0f8-4a33-9a8e-5e98667e4d4f)
 
