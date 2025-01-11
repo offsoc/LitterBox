@@ -701,7 +701,7 @@ def register_routes(app):
             for tool in ['yara', 'checkplz']:
                 check_analysis_tool(analysis_config.get('static', {}), tool)
 
-            for tool in ['yara', 'pe_sieve', 'moneta', 'patriot', 'hsb']:
+            for tool in ['yara', 'pe_sieve', 'moneta', 'patriot', 'hsb', 'rededr']:
                 check_analysis_tool(analysis_config.get('dynamic', {}), tool)
 
             status = 'ok' if not issues else 'degraded'
@@ -846,5 +846,10 @@ def register_routes(app):
         except Exception as e:
             app.logger.error(f"Error fetching file info for target {target}: {e}")
             return jsonify({'error': str(e)}), 500
-
+    
+    @app.errorhandler(404)
+    def page_not_found(error):
+        app.logger.debug(f"Page not found: {request.path}")
+        return render_template('error.html', error=f"Page not found: {request.path}"), 404
+    
     return app

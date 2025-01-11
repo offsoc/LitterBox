@@ -164,6 +164,7 @@ This project incorporates the following open-source components and acknowledges 
 - [rasta-mouse](https://github.com/rasta-mouse/ThreatCheck)
 - [thefLink](https://github.com/thefLink/Hunt-Sleeping-Beacons)
 - [joe-desimone](https://github.com/joe-desimone/patriot)
+- [dobin](https://github.com/dobin/RedEdr)
 
 ## Screenshots
 
