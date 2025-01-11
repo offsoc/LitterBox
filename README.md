@@ -67,9 +67,10 @@ Features include:
 
 ### Dynamic Analysis Suite
 - [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) (memory scanning) - Runtime pattern detection
-- [PE-Sieve](https://github.com/hasherezade/pe-sieve) - Process and memory inspection
-- [Moneta](https://github.com/forrest-orr/moneta) - Sleep pattern analysis
-- [Patriot](https://github.com/BlackSnufkin/patriot) - Runtime monitoring
+- [PE-Sieve](https://github.com/hasherezade/pe-sieve) - Detecting and dumping in-memory malware implants and advanced process injection techniques
+- [Moneta](https://github.com/forrest-orr/moneta) - Usermode memory analysis tool to detect malware IOCs
+- [Patriot](https://github.com/BlackSnufkin/patriot) - Detecting various kinds of in-memory stealth techniques
+- [RedEdr](https://github.com/dobin/RedEdr) - Collect Windows telemetry via ETW providers
 - [Hunt-Sleeping-Beacons](https://github.com/thefLink/Hunt-Sleeping-Beacons) - Beacon behavior analysis
 
 ## Web Endpoint Reference

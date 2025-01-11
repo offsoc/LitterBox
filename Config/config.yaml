@@ -64,3 +64,9 @@ analysis:
       tool_path: ".\\Scanners\\HuntSleepingBeacons\\Hunt-Sleeping-Beacons.exe"
       command: "{tool_path} -p {pid}"
       timeout: 120
+
+    rededr:
+      enabled: true
+      tool_path: ".\\Scanners\\RedEdr\\RedEdr.exe"
+      command: "{tool_path} -e --trace {process_name}"
+      timeout: 30

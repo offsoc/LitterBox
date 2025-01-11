@@ -126,8 +126,10 @@
                     </button>
 
                     <!-- Dynamic Analysis - Enhanced warning states -->
-                    <button onclick="selectAnalysisType('dynamic')" class="group text-left">
+                    <!-- Dynamic Analysis - Enhanced warning states -->
+                    <button onclick="selectAnalysisType('dynamic')" class="group text-left w-full">
                         <div class="p-6 rounded-xl border border-gray-800 hover:border-red-500/50 bg-gradient-to-br from-gray-900/50 to-black/30 transition-all duration-300 hover:shadow-lg">
+                            <!-- Header Section -->
                             <div class="flex items-center space-x-4 mb-4">
                                 <div class="p-3 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition-colors">
                                     <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,7 +144,7 @@
                                         <p class="text-base text-gray-400">Runtime behavior analysis</p>
                                     </div>
                                     
-                                    <!-- Warning Icon with Enhanced Tooltip -->
+                                    <!-- Warning Icon with Tooltip -->
                                     <div class="relative inline-block"
                                          onmouseover="document.getElementById('dynamicTooltip').classList.remove('hidden')"
                                          onmouseout="document.getElementById('dynamicTooltip').classList.add('hidden')">
@@ -162,36 +164,50 @@
                                 Execute and monitor payload behavior in real-time with memory analysis.
                             </p>
                             
-                            <div class="space-y-3">
-                                <div class="flex items-center space-x-3 text-base text-gray-400">
-                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>Moneta</span>
+                            <!-- Tools Section - Two Columns -->
+                            <div class="grid grid-cols-2 gap-x-6">
+                                <!-- Left Column -->
+                                <div class="space-y-3">
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>Yara Rules</span>
+                                    </div>
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>Moneta</span>
+                                    </div>
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>Hunt-Sleeping-Beacons</span>
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-3 text-base text-gray-400">
-                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>PE-Sieve</span>
-                                </div>
-                                <div class="flex items-center space-x-3 text-base text-gray-400">
-                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>Yara Rules</span>
-                                </div>
-                                <div class="flex items-center space-x-3 text-base text-gray-400">
-                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>Patriot</span>
-                                </div>
-                                <div class="flex items-center space-x-3 text-base text-gray-400">
-                                    <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>Hunt-Sleeping-Beacons</span>
+                                
+                                <!-- Right Column -->
+                                <div class="space-y-3">
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>RedEdr</span>
+                                    </div>
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>PE-Sieve</span>
+                                    </div>
+                                    <div class="flex items-center space-x-3 text-base text-gray-400">
+                                        <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span>Patriot</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

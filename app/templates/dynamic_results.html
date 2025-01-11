@@ -51,9 +51,9 @@
             <div id="totalDetections" class="text-2xl font-semibold text-gray-300">{{ yara_detections + pesieve_detections + moneta_detections + patriot_detections + hsb_detections }}</div>
         </div>
         <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
-            <div class="text-sm text-gray-500">Scan Duration</div>
+            <div class="text-sm text-gray-500">Total Analysis Duration</div>
             <div id="scanDuration" class="text-2xl font-semibold text-gray-300">
-                {{ "%.2f"|format(analysis_results.moneta.findings.scan_duration if analysis_results.moneta else 0) }}s
+                {{ "%.2f"|format(analysis_results.analysis_metadata.total_duration if analysis_results.analysis_metadata else 0) }}s
             </div>
         </div>
     </div>
@@ -241,6 +241,94 @@
                 </tr>
             </tbody>
         </table>
+    </div>
+    <!-- RedEdr Summary Section - Add this after the scanner results table -->
+    <div class="mt-8">
+        <h2 class="text-xl font-medium text-gray-100 mb-4">Process Telemetry Summary</h2>
+        
+        <!-- Event Statistics Grid -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            {% if analysis_results.rededr and analysis_results.rededr.findings %}
+                {% set findings = analysis_results.rededr.findings %}
+                {% set summary = findings.summary %}
+                
+                <!-- Basic Stats -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-200">Activity Stats</h3>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Total Events:</span>
+                            <span class="text-gray-200">{{ summary.total_events }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">DLLs Loaded:</span>
+                            <span class="text-gray-200">{{ summary.total_dlls }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Images Loaded:</span>
+                            <span class="text-gray-200">{{ summary.total_image_loads }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Information -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-200">Process Info</h3>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Child Processes:</span>
+                            <span class="text-gray-200">{{ summary.total_child_processes }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Active Threads:</span>
+                            <span class="text-gray-200">{{ summary.total_threads }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Image Unloads:</span>
+                            <span class="text-gray-200">{{ summary.total_image_unloads }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Details -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-200">Process Details</h3>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex flex-col">
+                            <span class="text-gray-400">PID:</span>
+                            <span class="text-gray-200">{{ findings.process_info.pid }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-400">Parent PID:</span>
+                            <span class="text-gray-200">{{ findings.process_info.parent_pid }}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-400">Status:</span>
+                            <span class="text-gray-200">{{ 'Protected' if findings.process_info.is_protected_process else 'Standard' }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="col-span-3 bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                    <p class="text-gray-400">No RedEdr telemetry data available.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

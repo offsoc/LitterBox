@@ -200,6 +200,25 @@ class ModalHandler {
     }
 }
 
+function getEventTypeColor(type) {
+    const colors = {
+        'Process Start': 'bg-green-500',
+        'Child Process': 'bg-yellow-500',
+        'DLL Load': 'bg-blue-500',
+        'Image Load': 'bg-purple-500',
+        'Thread Start': 'bg-pink-500'
+    };
+    return colors[type] || 'bg-gray-500';
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return 'N/A';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+}
+
+
 // Tools Registry Object (keeping reference to tools)
 const tools = {
     yara: {
@@ -762,7 +781,6 @@ const tools = {
         }
     },
 
-
     patriot: {
         element: document.getElementById('patriotResults'),
         statsElement: document.getElementById('patriotStats'),
@@ -1119,7 +1137,353 @@ const tools = {
             tools.hsb.element.innerHTML = html;
         }
     },
-    
+
+    rededr: {
+        element: document.getElementById('redEdrResults'),
+        statsElement: document.getElementById('redEdrStats'),
+        render: (results) => {
+            if (results.status === 'error') {
+                return tools.rededr.element.innerHTML = `
+                    <div class="bg-red-500/10 border border-red-900/20 rounded-lg p-4">
+                        <div class="flex items-center space-x-2 text-red-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${results.error}</span>
+                            ${results.error_details ? `<pre class="mt-2 text-xs">${JSON.stringify(results.error_details, null, 2)}</pre>` : ''}
+                        </div>
+                    </div>`;
+            }
+
+
+
+            const findings = results.findings || {};
+            const isEmpty = !findings.process_info?.pid && 
+                           (!findings.loaded_dlls?.length) && 
+                           (!findings.threads?.length) && 
+                           (!findings.image_loads?.length);
+
+            // Check if this is a PID-based scan by looking at the URL
+            const isPidScan = window.location.pathname.match(/\/analyze\/dynamic\/\d+$/);
+
+            // Handle empty results based on scan type
+            if (isEmpty) {
+                let messageHtml = '';
+                if (isPidScan) {
+                    messageHtml = `
+                        <div class="flex flex-col items-center justify-center py-8 bg-green-500/10 rounded-lg border border-green-500/20">
+                            <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-green-500 font-medium">RedEdr Not Initialized</span>
+                            <span class="text-green-400 text-sm mt-1">No data available - RedEdr did not initialize for this PID-based scan.</span>
+                        </div>`;
+                } else {
+                    messageHtml = `
+                        <div class="flex flex-col items-center justify-center py-8 bg-red-500/10 rounded-lg border border-red-500/20">
+                            <svg class="w-12 h-12 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-red-500 font-medium">No Analysis Data Available</span>
+                            <span class="text-red-400 text-sm mt-1">Please refresh the page to initiate a new scan.</span>
+                        </div>`;
+                }
+
+                tools.rededr.statsElement.innerHTML = '';
+                tools.rededr.element.innerHTML = messageHtml;
+                return;
+            }
+
+            const processInfo = findings.process_info || {};
+            const loadedDlls = findings.loaded_dlls || [];
+            const childProcesses = findings.child_processes || [];
+            const threads = findings.threads || [];
+            const imageLoads = findings.image_loads || [];
+            const imageUnloads = findings.image_unloads || [];
+            const cpuChanges = findings.cpu_priority_changes || [];
+            const timeline = findings.timeline || [];
+            const summary = findings.summary || {};
+            const severity = findings.severity || {};
+            const alerts = findings.alerts || [];
+
+            // Enhanced stats with complete summary data
+            const statsHtml = `
+                <div class="grid grid-cols-1 gap-4 mb-6">
+                    <!-- Summary Overview -->
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-gray-200">Analysis Summary</h2>
+                        </div>
+
+                        <!-- Stats Grid -->
+                        <div class="grid grid-cols-4 gap-4">
+                            ${[
+                                {label: 'Total Events', value: summary.total_events, icon: 'M13 10V3L4 14h7v7l9-11h-7z'},
+                                {label: 'DLLs Loaded', value: summary.total_dlls, icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'},
+                                {label: 'Child Processes', value: summary.total_child_processes, icon: 'M12 4v16m8-8H4'},
+                                {label: 'Active Threads', value: summary.total_threads, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'}
+                            ].map(stat => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center space-x-2">
+                                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${stat.icon}"></path>
+                                        </svg>
+                                        <div>
+                                            <div class="text-sm text-gray-400">${stat.label}</div>
+                                            <div class="text-lg font-semibold text-gray-200">${stat.value || 0}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+
+            tools.rededr.statsElement.innerHTML = statsHtml;
+
+            // Main content with complete process information
+            let html = `
+                <!-- Process Information -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-4 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                            <h3 class="text-lg font-semibold text-gray-200">Process Details</h3>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs rounded-full ${processInfo.is_protected_process ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">
+                                ${processInfo.is_protected_process ? 'Protected Process' : 'Standard Process'}
+                            </span>
+                            ${processInfo.is_debugged ? `
+                                <span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-400">
+                                    Debugged
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        ${[
+                            ['Command Line', processInfo.commandline],
+                            ['Working Directory', processInfo.working_dir],
+                            ['Process ID', processInfo.pid],
+                            ['Image Path', processInfo.image_path],
+                        ].map(([label, value]) => `
+                            <div class="bg-gray-800/50 rounded-lg p-3">
+                                <div class="text-sm text-gray-400 mb-1">${label}</div>
+                                <div class="text-sm text-gray-200 font-mono break-all">${value || 'N/A'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Timeline Section -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-4 mb-6">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-200">Event Timeline</h3>
+                    </div>
+
+                    <div class="relative pl-8 space-y-4">
+                        ${timeline.map((event, index) => `
+                            <div class="relative">
+                                <div class="absolute left-0 top-0 -ml-6 mt-2 w-2 h-2 rounded-full ${getEventTypeColor(event.type)}"></div>
+                                ${index !== timeline.length - 1 ? `
+                                    <div class="absolute left-0 top-0 -ml-5 mt-4 w-px h-full bg-gray-700"></div>
+                                ` : ''}
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-sm font-medium text-gray-200">${event.type}</span>
+                                        <span class="text-xs text-gray-400">${event.time || 'N/A'}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-400">${event.details}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- CPU Priority Changes -->
+                ${cpuChanges.length > 0 ? `
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-4 mb-6">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <h3 class="text-lg font-semibold text-gray-200">CPU Priority Changes</h3>
+                        </div>
+
+                        <div class="space-y-2">
+                            ${cpuChanges.map(change => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="grid grid-cols-4 gap-4">
+                                        <div class="text-sm">
+                                            <span class="text-gray-400">Thread ID:</span>
+                                            <span class="text-gray-200 ml-2">${change.thread_id}</span>
+                                        </div>
+                                        <div class="text-sm">
+                                            <span class="text-gray-400">Old Priority:</span>
+                                            <span class="text-gray-200 ml-2">${change.old_priority}</span>
+                                        </div>
+                                        <div class="text-sm">
+                                            <span class="text-gray-400">New Priority:</span>
+                                            <span class="text-gray-200 ml-2">${change.new_priority}</span>
+                                        </div>
+                                        <div class="text-sm">
+                                            <span class="text-gray-400">Time:</span>
+                                            <span class="text-gray-200 ml-2">${change.time || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Tabs for Detail Sections -->
+                <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-4">
+                    <div class="border-b border-gray-700 mb-4">
+                        <div class="flex space-x-4" role="tablist">
+                            <button onclick="switchInnerTab('dlls')" class="tab-button active px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-blue-500">DLLs</button>
+                            <button onclick="switchInnerTab('images')" class="tab-button px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-blue-500">Images</button>
+                            <button onclick="switchInnerTab('threads')" class="tab-button px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-blue-500">Threads</button>
+                        </div>
+                    </div>
+
+                    <!-- DLLs Tab -->
+                    <div id="dlls-tab" class="tab-content">
+                        <div class="space-y-2">
+                            ${loadedDlls.map(dll => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-200 font-mono">${dll.name || 'Unknown DLL'}</span>
+                                        <span class="text-gray-400 text-sm">Base: ${dll.addr ? '0x' + dll.addr.toString(16) : 'N/A'}</span>
+                                    </div>
+                                    ${dll.size ? `
+                                        <div class="text-xs text-gray-400 mt-1">
+                                            Size: ${formatBytes(dll.size)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Images Tab -->
+                    <div id="images-tab" class="tab-content hidden">
+                        <div class="flex justify-between mb-4">
+                            <div class="space-x-2">
+                                <button onclick="filterImages('loads')" class="px-3 py-1 text-sm rounded-full bg-blue-500/20 text-blue-400">Loads (${imageLoads.length})</button>
+                                <button onclick="filterImages('unloads')" class="px-3 py-1 text-sm rounded-full bg-red-500/20 text-red-400">Unloads (${imageUnloads.length})</button>
+                            </div>
+                        </div>
+                        
+                        <div id="image-loads" class="space-y-2">
+                            ${imageLoads.map(img => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-gray-200 font-mono">${img.image_name?.split('\\').pop() || 'Unknown'}</span>
+                                        <span class="text-gray-400 text-sm">${formatBytes(img.size)}</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                                        <div>Base: ${img.base ? '0x' + img.base.toString(16) : 'N/A'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div id="image-unloads" class="space-y-2 hidden">
+                            ${imageUnloads.map(img => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-gray-200 font-mono">${img.image_name?.split('\\').pop() || 'Unknown'}</span>
+                                        <span class="text-gray-400 text-sm">${formatBytes(img.size)}</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                                        <div>Base: ${img.base ? '0x' + img.base.toString(16) : 'N/A'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Threads Tab -->
+                    <div id="threads-tab" class="tab-content hidden">
+                        <div class="space-y-2">
+                            ${threads.map(thread => `
+                                <div class="bg-gray-800/50 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-gray-200 font-mono">Thread ID: ${thread.thread_id}</span>
+                                        <span class="text-gray-400 text-sm">Process ID: ${thread.process_id}</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                                        <div>Start Address: ${thread.start_addr ? '0x' + thread.start_addr.toString(16) : 'N/A'}</div>
+                                        <div>Stack Base: ${thread.stack_base ? '0x' + thread.stack_base.toString(16) : 'N/A'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+
+            tools.rededr.element.innerHTML = html;
+
+            // Initialize tab functionality if not already done
+            // Initialize tab functionality if not already done
+            if (!window.switchInnerTab) {
+                window.switchInnerTab = function(tabName) {
+                    // Hide all tab contents within RedEdr
+                    const tabContents = document.querySelectorAll('#redEdrTab .tab-content');
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    // Show selected tab content
+                    const selectedTab = document.getElementById(`${tabName}-tab`);
+                    if (selectedTab) {
+                        selectedTab.classList.remove('hidden');
+                    }
+                    
+                    // Update tab button styles
+                    const tabButtons = document.querySelectorAll('#redEdrTab .tab-button');
+                    tabButtons.forEach(button => {
+                        button.classList.remove('active', 'text-gray-200', 'border-blue-500');
+                        button.classList.add('text-gray-400');
+                    });
+                    
+                    const activeButton = document.querySelector(`[onclick="switchInnerTab('${tabName}')"]`);
+                    if (activeButton) {
+                        activeButton.classList.add('active', 'text-gray-200', 'border-blue-500');
+                        activeButton.classList.remove('text-gray-400');
+                    }
+                };
+            }
+
+
+            // Also update the image filter function to not conflict with tab visibility
+            if (!window.filterImages) {
+                window.filterImages = function(type) {
+                    const loads = document.getElementById('image-loads');
+                    const unloads = document.getElementById('image-unloads');
+                    
+                    if (!loads || !unloads) return;
+                    
+                    if (type === 'loads') {
+                        loads.classList.remove('hidden');
+                        unloads.classList.add('hidden');
+                    } else {
+                        loads.classList.add('hidden');
+                        unloads.classList.remove('hidden');
+                    }
+                };
+            }
+        }
+    },
+
     summary: {
         element: document.getElementById('summaryWrapper'),
         statsElement: document.getElementById('scannerResultsBody'),

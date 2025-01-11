@@ -156,6 +156,9 @@
                 <button class="tab-button text-base px-4 py-2 text-gray-300 hover:text-white border-b-2" data-tab="hsbTab">
                     Hunt-SB
                 </button>
+                <button class="tab-button text-base px-4 py-2 text-gray-300 hover:text-white border-b-2" data-tab="redEdrTab">
+                    RedEdr
+                </button>
                 {% endif %}
             </div>
             <!-- Tab Content -->
@@ -289,6 +292,12 @@
                 <p class="text-base text-gray-500 mb-6">Thread behavior and sleeping beacon analysis results.</p>
                 <div id="hsbStats" class="flex space-x-4 mb-6"></div>
                 <div id="hsbResults" class="space-y-4"></div>
+            </div>
+            <div id="redEdrTab" class="tab-content hidden">
+                <h3 class="text-xl font-medium text-gray-100">RedEdr Monitoring Results</h3>
+                <p class="text-base text-gray-500 mb-6">Collected Windows telemetry via ETW providers</p>
+                <div id="redEdrStats" class="flex space-x-4 mb-6"></div>
+                <div id="redEdrResults" class="space-y-4"></div>
             </div>
             {% endif %}
         </div>

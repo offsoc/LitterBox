@@ -346,8 +346,8 @@ function getAnalysisStatus(file) {
         };
     }
     return {
-        text: 'Pending',
-        class: 'bg-gray-500/10 text-gray-400 border border-gray-900/20'
+        text: 'No Results',
+        class: 'bg-red-500/10 text-red-400 border border-red-900/20'
     };
 }
 
