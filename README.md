@@ -57,6 +57,7 @@ Features include:
 - Process hollowing detection
 - Injection technique analysis
 - Sleep pattern monitoring
+- Collect Windows telemetry via ETW
 - PE integrity verification
 
 ## Integrated Tools
