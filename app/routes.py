@@ -134,20 +134,74 @@ def register_routes(app):
                 with open(static_results_path, 'w') as f:
                     json.dump(results, f)
                 app.logger.debug(f"Static analysis results saved to: {static_results_path}")
+                
             elif analysis_type == 'dynamic':
+
+                # POST request - Get command line arguments if provided
+                try:
+                    request_data = request.get_json() or {}
+                    cmd_args = request_data.get('args', [])
+                    # Validate command line arguments
+                    if not isinstance(cmd_args, list):
+                        app.logger.error("Invalid arguments format provided")
+                        return jsonify({'error': 'Arguments must be provided as a list'}), 400
+                    
+                    # Basic argument safety checks
+                    for arg in cmd_args:
+                        if not isinstance(arg, str):
+                            app.logger.error("Non-string argument provided")
+                            return jsonify({'error': 'All arguments must be strings'}), 400
+                        if ';' in arg or '&' in arg or '|' in arg:
+                            app.logger.error("Potentially dangerous argument detected")
+                            return jsonify({'error': 'Invalid argument characters detected'}), 400
+                    
+                    app.logger.debug(f"Command line arguments received: {cmd_args}")
+                except Exception as e:
+                    app.logger.error(f"Error parsing request data: {e}")
+                    cmd_args = []
+
                 target_for_analysis = pid if is_pid else file_path
                 app.logger.debug(f"Performing dynamic analysis on target: {target_for_analysis}, is_pid: {is_pid}")
-                results = analysis_manager.run_dynamic_analysis(target_for_analysis, is_pid)
+                # Pass the command line arguments to the analysis manager
+                results = analysis_manager.run_dynamic_analysis(target_for_analysis, is_pid, cmd_args)
 
-                # Save results to result folder
+                # Check for early termination cases
+                if results.get('status') == 'early_termination':
+                    app.logger.error("Process terminated early during initialization")
+                    dynamic_results_path = os.path.join(result_path, 'dynamic_analysis_results.json')
+                    with open(dynamic_results_path, 'w') as f:
+                        json.dump(results, f)
+                    app.logger.debug(f"Early termination results saved to: {dynamic_results_path}")
+                    
+                    return jsonify({
+                        'status': 'early_termination',
+                        'error': results.get('error', {}).get('message', 'Process terminated early'),
+                        'details': {
+                            'termination_time': results.get('error', {}).get('termination_time'),
+                            'init_time': results.get('error', {}).get('init_time'),
+                            'message': results.get('error', {}).get('details')
+                        }
+                    }), 202
+
+                # Normal case - save complete results
                 dynamic_results_path = os.path.join(result_path, 'dynamic_analysis_results.json')
                 with open(dynamic_results_path, 'w') as f:
                     json.dump(results, f)
                 app.logger.debug(f"Dynamic analysis results saved to: {dynamic_results_path}")
+                
             else:
                 app.logger.debug(f"Invalid analysis type received: {analysis_type}")
                 return jsonify({'error': 'Invalid analysis type'}), 400
 
+            # Return appropriate response based on the analysis completion
+            if results.get('status') == 'error':
+                app.logger.debug("Analysis completed with errors.")
+                return jsonify({
+                    'status': 'error',
+                    'error': results.get('error', {}).get('message', 'Analysis failed'),
+                    'details': results.get('error', {}).get('details')
+                }), 500
+                
             app.logger.debug("Analysis completed successfully.")
             return jsonify({
                 'status': 'success',

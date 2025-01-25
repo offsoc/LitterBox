@@ -135,14 +135,45 @@ class AnalysisCore {
         this.startTimer();
 
         try {
+            // Retrieve the arguments from localStorage
+            const savedArgs = localStorage.getItem('analysisArgs');
+            const args = savedArgs ? JSON.parse(savedArgs) : []; // Default to an empty array if no args are saved
+
             const response = await fetch(`/analyze/${this.analysisType}/${this.fileHash}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    args // Dynamically include the arguments retrieved from storage
+                })
             });
-            
+
             const data = await response.json();
+
+            // Handle early termination
+            if (data.status === 'early_termination') {
+                this.updateTimer();
+                this.stopTimer();
+                this.updateStatusIcon('error');
+                this.elements.analysisStatus.textContent = data.error || 'Process terminated early';
+                
+                // Create a minimal results object for summary
+                const results = {
+                    status: 'early_termination',
+                    analysis_metadata: {
+                        early_termination: true,
+                        total_duration: data.details?.termination_time || 0
+                    }
+                };
+                
+                if (tools.summary) {
+                    tools.summary.render(results);
+                }
+                return;
+            }
             
-            // Update final time and UI
+            // Normal completion flow
             this.updateTimer();
             this.stopTimer();
             this.updateStatusIcon('complete');
@@ -155,18 +186,18 @@ class AnalysisCore {
             }
 
             // Then process individual tool results
-            Object.entries(data.results).forEach(([toolKey, results]) => {
+            Object.entries(data.results || {}).forEach(([toolKey, results]) => {
                 if (results && tools[toolKey] && toolKey !== 'summary') {
                     tools[toolKey].render(results);
                 }
             });
-
         } catch (error) {
             this.stopTimer();
             this.updateStatusIcon('error');
             this.elements.analysisStatus.textContent = `Error: ${error.message}`;
         }
     }
+
 }
 
 // Modal Handler
@@ -1488,12 +1519,49 @@ const tools = {
         element: document.getElementById('summaryWrapper'),
         statsElement: document.getElementById('scannerResultsBody'),
         render: (results) => {
-            // 1) Grab the new container where we'll show file/process info
+            // First check if this is an early termination case
+            if (results.status === 'early_termination') {
+                // Update stats for early termination
+                document.getElementById('totalDetections').textContent = '-';
+                document.getElementById('overallStatus').textContent = 'Analysis Failed';
+                document.getElementById('overallStatus').className = 'text-2xl font-semibold text-red-500';
+                
+                // Show early termination in results table
+                tools.summary.statsElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4">
+                            <div class="flex flex-col items-center justify-center text-center">
+                                <span class="text-red-500 font-medium mb-1">Process terminated before analysis could complete</span>
+                                <span class="text-sm text-gray-400">
+                                    ${results.error || 'Process terminated early'}
+                                    ${results.analysis_metadata?.total_duration ? 
+                                        `(Terminated after ${results.analysis_metadata.total_duration} seconds)` : 
+                                        ''}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>`;
+
+                // Update target details for early termination
+                const targetDetailsEl = document.getElementById('targetDetails');
+                if (targetDetailsEl) {
+                    targetDetailsEl.innerHTML = `
+                        <div class="bg-red-500/10 rounded-lg border border-red-900/20 p-4 mb-4">
+                            <h4 class="text-base font-medium text-red-500 mb-2">Analysis Failed</h4>
+                            <p class="text-gray-300">
+                                Process terminated before analysis could complete. No results available.
+                            </p>
+                        </div>`;
+                }
+                
+                return;
+            }
+
+            // Rest of the existing summary render code for normal cases...
             const targetDetailsEl = document.getElementById('targetDetails');
             
             const filePath = results.checkplz?.findings?.scan_results?.file_path || 
-                           
-                           'No file path available';
+                            'No file path available';
             
             targetDetailsEl.innerHTML = `
                 <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4 mb-4">
@@ -1502,8 +1570,8 @@ const tools = {
                         <span class="font-semibold">File Path:</span> 
                         ${filePath}
                     </p>
-                </div>
-                `;
+                </div>`;
+
             // or if we have process info (Moneta’s approach)
             if (results.moneta?.findings?.process_info) {
                 const info = results.moneta.findings.process_info;

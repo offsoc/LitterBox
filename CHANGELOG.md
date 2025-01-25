@@ -1,0 +1,53 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [v1.5.1] - 2025-01-25
+### Added
+- Support for executing payloads with custom command-line arguments
+- Increased default payload size limit to 100MB
+- Configurable payload initialization timeout settings
+- New Version for PE-Sieve scanner
+
+### Fixed
+- Improved error handling for payloads that terminate before scan completion
+- Enhanced UI/UX for clearer error messaging and handling
+
+## [v1.5.0] - 2025-01-11
+### Added
+- LitterBox RedEdr Scanner implementation
+- Added LICENSE file
+
+### Changed
+- Various code refactoring improvements
+
+### Fixed
+- Multiple bug fixes
+
+## [v1.2.1] - 2025-01-06
+### Added
+- Debug mode enabled
+- Small improvements to core functionality
+
+## [v1.2.0] - 2025-01-05
+### Added
+- API route for results with JSON output (@som3canadian)
+- Improved risk calculation system
+- Enhanced summary section with better reporting
+
+### Changed
+- Documentation improvements
+- Updated README with new features and instructions
+
+### Fixed
+- Code optimization and cleanup
+- Risk calculation refinements
+
+## [v1.0.0] - 2025-01-04
+### Added
+- Initial release
+- Base functionality implementation
+- Core scanning features
+
+### Notes
+- Repository initialized with basic documentation

@@ -14,11 +14,14 @@ upload:
     - xlsx
     - lnk
     - sys
-  max_file_size: 16777216  # 16MB in bytes
+  max_file_size: 104857600  # 100MB in bytes
   upload_folder: "Uploads"
   result_folder: "Results"
 
 analysis:
+  process:
+    init_wait_time: 5  # Time in seconds to wait for payload initialization
+  
   static:
     yara:
       enabled: true
@@ -67,6 +70,7 @@ analysis:
 
     rededr:
       enabled: true
+      etw_wait_time: 10  # Time in seconds to wait for ETW setup
       tool_path: ".\\Scanners\\RedEdr\\RedEdr.exe"
       command: "{tool_path} -e --trace {process_name}"
       timeout: 30

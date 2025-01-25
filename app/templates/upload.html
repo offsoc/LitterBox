@@ -83,6 +83,7 @@
             <div class="p-8">
                 <h4 class="text-xl font-medium text-gray-200 mb-8">Choose Analysis Type</h4>
                 <div class="grid grid-cols-2 gap-8">
+
                     <!-- Static Analysis - Enhanced card design -->
                     <button onclick="selectAnalysisType('static')" class="group text-left">
                         <div class="p-6 rounded-xl border border-gray-800 hover:border-red-500/50 bg-gradient-to-br from-gray-900/50 to-black/30 transition-all duration-300 hover:shadow-lg">
@@ -163,7 +164,7 @@
                             <p class="text-base text-gray-400 group-hover:text-gray-300 mb-4">
                                 Execute and monitor payload behavior in real-time with memory analysis.
                             </p>
-                            
+
                             <!-- Tools Section - Two Columns -->
                             <div class="grid grid-cols-2 gap-x-6">
                                 <!-- Left Column -->
@@ -212,6 +213,23 @@
                             </div>
                         </div>
                     </button>
+                </div>
+                <!-- Add the command-line arguments input field -->
+                <div id="argsInputContainer" class="mt-6">
+                    <label for="analysisArgs" class="block mb-2 text-gray-200 font-medium">
+                        Command-line Arguments:
+                    </label>
+                    <input 
+                        type="text"
+                        id="analysisArgs"
+                        placeholder="Enter arguments separated by spaces"
+                        class="w-full p-3 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 
+                               focus:outline-none focus:ring-2 focus:ring-red-500 
+                               transition-colors duration-200"
+                    />
+                    <p class="mt-2 text-sm text-gray-400">
+                        Provide arguments for the payload (Dynamic Analysis).
+                    </p>
                 </div>
             </div>
         </div>

@@ -1,3 +1,6 @@
+# app/analyzers/manager.py
+
+
 import logging
 import subprocess
 import time
@@ -114,7 +117,7 @@ class AnalysisManager:
             analyzers: Dictionary of analyzer instances
             target: Analysis target (file path or PID)
             analysis_type: Type of analysis ('static' or 'dynamic')
-            
+                
         Returns:
             dict: Results from all analyzers
         """
@@ -123,27 +126,28 @@ class AnalysisManager:
             self.logger.warning(f"No {analysis_type} analyzers are enabled")
             return results
 
+        # For dynamic analysis, verify process exists first
+        if analysis_type == 'dynamic':
+            try:
+                process = psutil.Process(int(target))
+                if not process.is_running():
+                    self.logger.error(f"Process {target} is not running")
+                    return {'status': 'error', 'error': 'Process not running'}
+            except (ValueError, psutil.NoSuchProcess):
+                self.logger.error(f"Process {target} does not exist")
+                return {'status': 'error', 'error': 'Process does not exist'}
+
+        # Run analyzers only if we have a valid target
         self.logger.debug(f"Running {len(analyzers)} {analysis_type} analyzers")
-        
         for name, analyzer in analyzers.items():
             try:
-                self.logger.debug(f"Starting {analysis_type} analyzer: {name}")
-                start_time = time.time()
-                
+                self.logger.debug(f"Running {name}")
                 analyzer.analyze(target)
                 results[name] = analyzer.get_results()
-                
-                duration = time.time() - start_time
-                self.logger.debug(f"{analysis_type} analyzer {name} completed in {duration:.2f} seconds")
-                self.logger.debug(f"Results from {name}: {results[name]}")
-                
             except Exception as e:
-                self.logger.error(f"Error in {analysis_type} analyzer {name}: {str(e)}", exc_info=True)
-                results[name] = {
-                    'status': 'error',
-                    'error': str(e)
-                }
-        
+                self.logger.error(f"Error in {name}: {str(e)}")
+                results[name] = {'status': 'error', 'error': str(e)}
+
         return results
 
     def run_static_analysis(self, file_path: str) -> dict:
@@ -168,18 +172,150 @@ class AnalysisManager:
                 'timestamp': time.time(),
                 'error': str(e)
             }
-        self.logger.debug(f"Statuc analysis completed in {time.time() - start_time:.2f} seconds")
+        self.logger.debug(f"Static analysis completed in {time.time() - start_time:.2f} seconds")
 
         return results
 
-    def _validate_process(self, target, is_pid: bool) -> tuple:
+    def run_dynamic_analysis(self, target, is_pid: bool = False, cmd_args: list = None) -> dict:
+        """Run dynamic analysis with timing and process output capture."""
+        self.logger.debug(f"Starting dynamic analysis - Target: {target}, is_pid: {is_pid}, args: {cmd_args}")
+        start_time = time.time()
+        results = {}
+        process = None
+        rededr = None
+        early_termination = False
+        
+        try:
+            if not is_pid:
+                # 1. Start RedEdr first if enabled
+                rededr_config = self.config['analysis']['dynamic'].get('rededr', {})
+                if rededr_config.get('enabled'):
+                    self.logger.debug("Initializing RedEdr analyzer")
+                    try:
+                        target_name = target.split('\\')[-1]  # Extract filename from path
+                        rededr = RedEdrAnalyzer(self.config)
+                        if rededr.start_tool(target_name):
+                            # Get ETW setup wait time from config
+                            etw_wait_time = rededr_config.get('etw_wait_time', 5)  # Default to 5 seconds if not specified
+                            self.logger.debug(f"RedEdr initialized, waiting {etw_wait_time} seconds for ETW setup")
+                            time.sleep(etw_wait_time)
+                        else:
+                            self.logger.error("Failed to start RedEdr")
+                            results['rededr'] = {
+                                'status': 'error',
+                                'error': 'Failed to start tool'
+                            }
+                    except Exception as e:
+                        self.logger.error(f"Error initializing RedEdr: {e}")
+                        results['rededr'] = {
+                            'status': 'error',
+                            'error': str(e)
+                        }
+                
+                # 2. Try to start and validate target process
+                try:
+                    process, pid = self._validate_process(target, is_pid, cmd_args)
+                except Exception as e:
+                    early_termination = True
+                    error_msg = str(e)
+                    self.logger.error(f"Process startup failed: {error_msg}")
+                    
+                    # Check if this was an early termination case
+                    if "terminated after" in error_msg:
+                        init_wait = self.config.get('analysis', {}).get('process', {}).get('init_wait_time', 5)
+                        results['status'] = 'early_termination'
+                        results['error'] = {
+                            'message': f'Process terminated before initialization period ({init_wait}s)',
+                            'details': error_msg,
+                            'termination_time': error_msg.split('terminated after ')[1].split(' seconds')[0],
+                            'cmd_args': cmd_args if cmd_args else []
+                        }
+                    else:
+                        results['status'] = 'error'
+                        results['error'] = {
+                            'message': 'Process startup failed',
+                            'details': error_msg,
+                            'cmd_args': cmd_args if cmd_args else []
+                        }
+                    
+                    # Add metadata even for failed analysis
+                    results['analysis_metadata'] = {
+                        'total_duration': time.time() - start_time,
+                        'timestamp': time.time(),
+                        'early_termination': early_termination,
+                        'analysis_started': False,
+                        'cmd_args': cmd_args if cmd_args else []
+                    }
+                    
+                    return results
+
+                # 3. Run analyzers only if process started successfully
+                if not early_termination:
+                    regular_analyzers = {k: v for k, v in self.dynamic_analyzers.items() 
+                                       if k != 'rededr'}
+                    other_results = self._run_analyzers(regular_analyzers, pid, 'dynamic')
+                    results.update(other_results)
+                    
+                    # Only cleanup if process didn't terminate early
+                    if process:
+                        self.logger.debug("Cleaning up target process")
+                        self._cleanup_process(process, is_pid)
+                
+                # Always get RedEdr results if it was started
+                if rededr:
+                    self.logger.debug("Getting RedEdr events")
+                    results['rededr'] = rededr.get_results()
+                    self.logger.debug("RedEdr findings:")
+                    self.logger.debug(results['rededr'].get('findings'))
+                    
+                    self.logger.debug("Cleaning up RedEdr")
+                    try:
+                        rededr.cleanup()
+                    except Exception as e:
+                        self.logger.error(f"Error cleaning up RedEdr: {e}")
+            
+            else:  # PID-based analysis
+                process, pid = self._validate_process(target, is_pid)
+                results = self._run_analyzers(self.dynamic_analyzers, pid, 'dynamic')
+            
+            # Add metadata
+            results['analysis_metadata'] = {
+                'total_duration': time.time() - start_time,
+                'timestamp': time.time(),
+                'early_termination': early_termination,
+                'analysis_started': not early_termination,
+                'cmd_args': cmd_args if cmd_args else []
+            }
+                
+        except Exception as e:
+            self.logger.error(f"Error during dynamic analysis: {str(e)}", exc_info=True)
+            results['status'] = 'error'
+            results['error'] = {
+                'message': 'Analysis failed',
+                'details': str(e),
+                'cmd_args': cmd_args if cmd_args else []
+            }
+            results['analysis_metadata'] = {
+                'total_duration': time.time() - start_time,
+                'timestamp': time.time(),
+                'error': str(e),
+                'early_termination': early_termination,
+                'analysis_started': False,
+                'cmd_args': cmd_args if cmd_args else []
+            }
+                
+        self.logger.debug(f"Dynamic analysis completed in {time.time() - start_time:.2f} seconds")
+        return results
+
+    def _validate_process(self, target, is_pid: bool, cmd_args: list = None) -> tuple:
         """
         Validate and prepare process for dynamic analysis.
         
         Args:
             target: Process ID or file path
             is_pid: Whether target is a process ID
-            
+            cmd_args: Optional list of command line arguments
+                
         Returns:
             tuple: (psutil.Process, process ID)
         """
@@ -196,125 +332,134 @@ class AnalysisManager:
                 self.logger.error(f"Invalid or non-existent PID {target}: {e}")
                 raise Exception(f"Invalid or non-existent PID: {e}")
         else:
-            self.logger.debug(f"Starting new process for target: {target}")
-            process = subprocess.Popen(
-                target,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            self.logger.debug(f"Process started with PID: {process.pid}")
-            self.logger.debug("Waiting 5 seconds for process initialization")
-            time.sleep(5)
-            return process, process.pid
+            # Prepare command with arguments
+            command = [target]
+            if cmd_args:
+                command.extend(cmd_args)
+                
+            self.logger.debug(f"Starting new process: {command}")
+            
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+
+            try:
+                process = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    startupinfo=startupinfo
+                )
+                pid = process.pid
+                self.logger.debug(f"Process started with PID: {pid}")
+
+                try:
+                    ps_process = psutil.Process(pid)
+                    if not ps_process.is_running():
+                        raise Exception(f"Process {pid} terminated immediately")
+                    
+                    # Get init wait time from config
+                    init_wait = self.config.get('analysis', {}).get('process', {}).get('init_wait_time', 5)
+                    self.logger.debug(f"Waiting {init_wait} seconds for process initialization")
+                    
+                    # Check process status during wait time
+                    wait_interval = 0.1  # Check every 100ms
+                    elapsed = 0
+                    while elapsed < init_wait:
+                        time.sleep(wait_interval)
+                        elapsed += wait_interval
+                        
+                        if not ps_process.is_running():
+                            cmd_str = ' '.join(command)
+                            raise Exception(f"Process terminated after {elapsed:.1f} seconds (Command: {cmd_str})")
+                    
+                    # Final check
+                    if not ps_process.is_running():
+                        raise Exception(f"Process terminated during initialization")
+                        
+                    return process, pid
+                    
+                except psutil.NoSuchProcess:
+                    cmd_str = ' '.join(command)
+                    raise Exception(f"Process {pid} terminated immediately after start (Command: {cmd_str})")
+                except Exception as e:
+                    # Clean up the process handles if it somehow still exists
+                    if process:
+                        try:
+                            process.kill()
+                        except:
+                            pass
+                    raise e
+            except Exception as e:
+                raise Exception(f"Failed to start process: {str(e)}")
 
     def _cleanup_process(self, process, is_pid: bool):
         """
         Clean up process and its children after analysis.
+        Handles cases where processes may have already terminated.
         
         Args:
             process: Process to clean up
             is_pid: Whether process was created by us
         """
         if process and not is_pid:
-            self.logger.debug(f"Cleaning up created process with PID: {process.pid}")
+            self.logger.debug(f"Starting cleanup of process PID: {process.pid}")
             try:
-                parent = psutil.Process(process.pid)
+                # First check if the process still exists
+                try:
+                    parent = psutil.Process(process.pid)
+                    if not parent.is_running():
+                        self.logger.error(f"Process {process.pid} has already terminated")
+                        return
+                except psutil.NoSuchProcess:
+                    self.logger.error(f"Process {process.pid} no longer exists")
+                    return
                 
-                child_count = len(parent.children(recursive=True))
-                self.logger.debug(f"Found {child_count} child processes to terminate")
+                # Get children before terminating parent
+                try:
+                    children = parent.children(recursive=True)
+                    child_count = len(children)
+                    self.logger.debug(f"Found {child_count} child processes to terminate")
+                except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                    self.logger.error(f"Failed to get child processes: {e}")
+                    children = []
                 
-                for child in parent.children(recursive=True):
-                    self.logger.debug(f"Terminating child process: {child.pid}")
-                    child.terminate()
-                    
-                self.logger.debug(f"Terminating parent process: {parent.pid}")
-                parent.terminate()
-                self.logger.debug("Process cleanup completed successfully")
+                # Terminate children
+                for child in children:
+                    try:
+                        if child.is_running():
+                            self.logger.info(f"Terminating child process: {child.pid}")
+                            child.terminate()
+                            # Give it a moment to terminate gracefully
+                            child.wait(timeout=3)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired) as e:
+                        self.logger.error(f"Failed to terminate child {child.pid}: {e}")
+                        # Try to force kill if termination failed
+                        try:
+                            if child.is_running():
+                                self.logger.debug(f"Force killing child process: {child.pid}")
+                                child.kill()
+                        except psutil.NoSuchProcess as kill_error:
+                            self.logger.error(f"Child process disappeared during kill: {kill_error}")
+                
+                # Finally terminate parent
+                try:
+                    if parent.is_running():
+                        self.logger.info(f"Terminating parent process: {parent.pid}")
+                        parent.terminate()
+                        parent.wait(timeout=3)
+                        
+                        # Force kill if still running
+                        if parent.is_running():
+                            self.logger.debug(f"Force killing parent process: {parent.pid}")
+                            parent.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired) as e:
+                    self.logger.error(f"Failed to terminate parent process: {e}")
+                
+                self.logger.debug("Process cleanup completed")
                 
             except Exception as e:
+                # Log unexpected errors as errors
                 self.logger.error(f"Error during process cleanup: {str(e)}", exc_info=True)
+                # Still don't raise the exception since cleanup errors shouldn't halt the analysis
 
-    def run_dynamic_analysis(self, target, is_pid: bool = False) -> dict:
-        """Run dynamic analysis with timing"""
-        self.logger.debug(f"Starting dynamic analysis - Target: {target}, is_pid: {is_pid}")
-        start_time = time.time()
-        results = {}
-        process = None
-        rededr = None
-        
-        try:
-            if not is_pid:
-                # 1. Start RedEdr first if enabled
-                if self.config['analysis']['dynamic'].get('rededr', {}).get('enabled'):
-                    self.logger.debug("Initializing RedEdr analyzer")
-                    try:
-                        target_name = target.split('\\')[-1]  # Extract filename from path
-                        rededr = RedEdrAnalyzer(self.config)
-                        if rededr.start_tool(target_name):
-                            self.logger.debug("RedEdr initialized, waiting 10 seconds for ETW setup")
-                            time.sleep(10)  # Wait for RedEdr to initialize ETW
-                        else:
-                            self.logger.error("Failed to start RedEdr")
-                            results['rededr'] = {
-                                'status': 'error',
-                                'error': 'Failed to start tool'
-                            }
-                    except Exception as e:
-                        self.logger.error(f"Error initializing RedEdr: {e}")
-                        results['rededr'] = {
-                            'status': 'error',
-                            'error': str(e)
-                        }
-                
-                # 2. Now start the target process
-                self.logger.debug("Starting target process")
-                process, pid = self._validate_process(target, is_pid)
-                self.logger.debug(f"Target process started with PID: {pid}")
-                
-                # 3. Run other dynamic analyzers
-                regular_analyzers = {k: v for k, v in self.dynamic_analyzers.items() 
-                                   if k != 'rededr'}
-                
-                other_results = self._run_analyzers(regular_analyzers, pid, 'dynamic')
-                results.update(other_results)
-                
-                # 4. Cleanup everything
-                if process:
-                    self.logger.debug("Cleaning up target process")
-                    self._cleanup_process(process, is_pid)
-                
-                if rededr:
-                    self.logger.debug("Getting RedEdr events")
-                    results['rededr'] = rededr.get_results()
-                    self.logger.debug("RedEdr findings:")
-                    self.logger.debug(results['rededr'].get('findings'))
-                    
-                    self.logger.debug("Cleaning up RedEdr")
-                    try:
-                        rededr.cleanup()
-                    except Exception as e:
-                        self.logger.error(f"Error cleaning up RedEdr: {e}")
-            else:  # PID-based analysis
-                process, pid = self._validate_process(target, is_pid)
-                results = self._run_analyzers(self.dynamic_analyzers, pid, 'dynamic')
-                
-            # Add analysis timing metadata
-            results['analysis_metadata'] = {
-                'total_duration': time.time() - start_time,
-                'timestamp': time.time()
-            }
-                
-        except Exception as e:
-            self.logger.error(f"Error during dynamic analysis: {str(e)}", exc_info=True)
-            results['process'] = {
-                'status': 'error',
-                'error': str(e)
-            }
-            results['analysis_metadata'] = {
-                'total_duration': time.time() - start_time,
-                'timestamp': time.time(),
-                'error': str(e)
-            }
-                
-        self.logger.debug(f"Dynamic analysis completed in {time.time() - start_time:.2f} seconds")
-        return results

@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         suspiciousImportsList: document.getElementById('suspiciousImportsList'),
         suspiciousImportsCount: document.getElementById('suspiciousImportsCount'),
         suspiciousImportsSummary: document.getElementById('suspiciousImportsSummary')
+        
     };
 
     let currentFileHash = null;
@@ -534,8 +535,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    window.selectAnalysisType = function(type) {
+    window.selectAnalysisType = function (type) {
         if (!currentFileHash) return;
+
+        // Get the user-specified arguments
+        const argsInput = document.getElementById('analysisArgs').value;
+        const args = argsInput.split(' ').filter(arg => arg.trim() !== '');
+
+        // Save the arguments to localStorage
+        localStorage.setItem('analysisArgs', JSON.stringify(args));
 
         updateProgress(2, true);
         elements.fileAnalysisArea.classList.add('opacity-0', 'scale-95');
@@ -544,4 +552,5 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = `/analyze/${type}/${currentFileHash}`;
         }, UPLOAD_CONFIG.transitionDelay);
     };
+
 });

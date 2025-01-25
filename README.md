@@ -134,6 +134,11 @@ pip install -r requirements.txt
 ```bash
 python litterbox.py
 ```
+### Running LitterBox in debug mode
+
+```bash
+python litterbox.py --debug
+```
 
 The web interface will be available at: `http://127.0.0.1:1337`
 
