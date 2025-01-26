@@ -1,6 +1,5 @@
 # app/analyzers/manager.py
 
-
 import logging
 import subprocess
 import time
@@ -12,6 +11,7 @@ from abc import ABC, abstractmethod
 # Import analyzers
 from .static.yara_analyzer import YaraStaticAnalyzer
 from .static.checkplz_analyzer import CheckPlzAnalyzer
+from .static.stringnalyzer_analyzer import StringsAnalyzer
 from .dynamic.yara_analyzer import YaraDynamicAnalyzer
 from .dynamic.pe_sieve_analyzer import PESieveAnalyzer
 from .dynamic.moneta_analyzer import MonetaAnalyzer
@@ -32,7 +32,8 @@ class AnalysisManager:
     # Define analyzer mappings
     STATIC_ANALYZERS = {
         'yara': YaraStaticAnalyzer,
-        'checkplz': CheckPlzAnalyzer
+        'checkplz': CheckPlzAnalyzer,
+        'stringnalyzer': StringsAnalyzer
     }
 
     DYNAMIC_ANALYZERS = {

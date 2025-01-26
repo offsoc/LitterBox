@@ -122,7 +122,6 @@
     </div>
 
     <!-- Results Section -->
-    <!-- Results Section -->
     <div class="bg-black/60 backdrop-blur-sm rounded-xl border border-gray-800 shadow-lg">
         <div class="p-6">
             <!-- Tabs -->
@@ -136,6 +135,9 @@
                 </button>
                 <button class="tab-button text-base px-4 py-2 text-gray-300 hover:text-white border-b-2" data-tab="threatCheckResultsTab">
                     CheckPlz
+                </button>
+                <button class="tab-button text-base px-4 py-2 text-gray-300 hover:text-white border-b-2" data-tab="StringnalyzerResultsTab">
+                    Stringnalyzer
                 </button>
                 {% else %}
                 <button class="tab-button text-base px-4 py-2 text-gray-300 hover:text-white border-b-2" data-tab="summaryTab">
@@ -219,6 +221,20 @@
                 <p class="text-base text-gray-500 mb-6">Windows Defender signature detection results.</p>
                 <div id="threatCheckStats" class="flex space-x-4 mb-6"></div>
                 <div id="threatCheckResults" class="space-y-4"></div>
+            </div>
+            <div id="StringnalyzerResultsTab" class="tab-content">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-medium text-gray-100">Stringnalyzer Scan Results</h3>
+                    <button id="downloadResultsBtn" class="px-3 py-1 text-sm text-gray-300 hover:text-white border border-gray-700 rounded hover:border-gray-600 transition-colors flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        <span>Download Results</span>
+                    </button>
+                </div>
+                <p class="text-base text-gray-500 mb-6">Payload String Analyzer</p>
+                <div id="StringnalyzerStats" class="flex space-x-4 mb-6"></div>
+                <div id="StringnalyzerResults" class="space-y-4"></div>
             </div>
             {% else %}
             <!-- Summary Tab for Dynamic Analysis -->

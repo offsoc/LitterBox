@@ -724,7 +724,7 @@ def register_routes(app):
             analysis_config = config.get('analysis', {})
             issues = []
 
-            # Check upload folder accessibility
+            # Simple upload folder check
             upload_folder = upload_config.get('upload_folder')
             if not upload_folder:
                 app.logger.warning("Upload folder path is not configured.")
@@ -732,9 +732,6 @@ def register_routes(app):
             elif not os.path.isdir(upload_folder):
                 app.logger.warning(f"Upload folder does not exist: {upload_folder}")
                 issues.append(f"Upload folder does not exist: {upload_folder}")
-            elif not os.access(upload_folder, os.W_OK):
-                app.logger.warning(f"Upload folder is not writable: {upload_folder}")
-                issues.append(f"Upload folder is not writable: {upload_folder}")
 
             # Check static and dynamic analysis tools
             def check_analysis_tool(section, tool_name):
@@ -746,29 +743,45 @@ def register_routes(app):
                         issues.append(f"{tool_name}: tool path not configured")
                     elif not os.path.isfile(tool_path):
                         issues.append(f"{tool_name}: tool not found at {tool_path}")
-                    elif not os.access(tool_path, os.X_OK):
-                        issues.append(f"{tool_name}: tool not executable at {tool_path}")
+                    
                     rules_path = tool_config.get('rules_path')
                     if rules_path and not os.path.isfile(rules_path):
                         issues.append(f"{tool_name}: rules not found at {rules_path}")
 
-            for tool in ['yara', 'checkplz']:
-                check_analysis_tool(analysis_config.get('static', {}), tool)
+            # Get tools from config instead of hardcoding
+            static_section = analysis_config.get('static', {})
+            dynamic_section = analysis_config.get('dynamic', {})
 
-            for tool in ['yara', 'pe_sieve', 'moneta', 'patriot', 'hsb', 'rededr']:
-                check_analysis_tool(analysis_config.get('dynamic', {}), tool)
+            # Check all configured static tools
+            for tool_name in static_section.keys():
+                check_analysis_tool(static_section, tool_name)
+
+            # Check all configured dynamic tools
+            for tool_name in dynamic_section.keys():
+                check_analysis_tool(dynamic_section, tool_name)
+
+            # Get all enabled tools for configuration response
+            static_tools = {
+                tool: static_section.get(tool, {}).get('enabled', False) 
+                for tool in static_section.keys()
+            }
+            
+            dynamic_tools = {
+                tool: dynamic_section.get(tool, {}).get('enabled', False) 
+                for tool in dynamic_section.keys()
+            }
 
             status = 'ok' if not issues else 'degraded'
             app.logger.debug(f"Health check completed. Status: {status}")
-
+            
             return jsonify({
                 'status': status,
                 'timestamp': datetime.datetime.now().isoformat(),
-                'upload_folder_accessible': os.path.isdir(upload_folder) and os.access(upload_folder, os.W_OK) if upload_folder else False,
+                'upload_folder_accessible': os.path.isdir(upload_folder) if upload_folder else False,
                 'issues': issues,
                 'configuration': {
-                    'static_analysis': {tool: analysis_config.get('static', {}).get(tool, {}).get('enabled', False) for tool in ['yara', 'threatcheck']},
-                    'dynamic_analysis': {tool: analysis_config.get('dynamic', {}).get(tool, {}).get('enabled', False) for tool in ['yara', 'pe_sieve', 'moneta']}
+                    'static_analysis': static_tools,
+                    'dynamic_analysis': dynamic_tools
                 }
             }), 200 if status == 'ok' else 503
 

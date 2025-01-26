@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.6.0] - 2025-01-26
+### Added
+- New Static analyzer Stringnalyzer implementation
+
+### Fixed
+- Refactoring health check implementation to use configuration file settings
+
 ## [v1.5.1] - 2025-01-25
 ### Added
 - Support for executing payloads with custom command-line arguments
@@ -15,7 +22,7 @@ All notable changes to this project will be documented in this file.
 
 ## [v1.5.0] - 2025-01-11
 ### Added
-- LitterBox RedEdr Scanner implementation
+- New Dynamic analyzer RedEdr Scanner implementation
 - Added LICENSE file
 
 ### Changed

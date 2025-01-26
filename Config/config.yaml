@@ -36,6 +36,12 @@ analysis:
       command: "{tool_path} -m -r -f {file_path}"
       timeout: 120
 
+    stringnalyzer:
+      enabled: true
+      tool_path: ".\\Scanners\\Stringnalyzer\\Stringnalyzer.exe "
+      command: "{tool_path} --wide -f {file_path}"
+      timeout: 120
+
   dynamic:
     yara:
       enabled: true

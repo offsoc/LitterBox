@@ -58,20 +58,20 @@ Features include:
 - Injection technique analysis
 - Sleep pattern monitoring
 - Collect Windows telemetry via ETW
-- PE integrity verification
 
 ## Integrated Tools
 
 ### Static Analysis Suite
 - [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) - Pattern matching and signature detection
 - [CheckPlz](https://github.com/BlackSnufkin/CheckPlz) - AV detection testing
+- [Stringnalyzer](https://github.com/BlackSnufkin/Rusty-Playground/Stringnalyzer) - Payload Strings analyzer (Note: May produce false positives)
 
 ### Dynamic Analysis Suite
 - [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) (memory scanning) - Runtime pattern detection
 - [PE-Sieve](https://github.com/hasherezade/pe-sieve) - Detecting and dumping in-memory malware implants and advanced process injection techniques
 - [Moneta](https://github.com/forrest-orr/moneta) - Usermode memory analysis tool to detect malware IOCs
 - [Patriot](https://github.com/BlackSnufkin/patriot) - Detecting various kinds of in-memory stealth techniques
-- [RedEdr](https://github.com/dobin/RedEdr) - Collect Windows telemetry via ETW providers
+- [RedEdr](https://github.com/dobin/RedEdr) - Collect Windows telemetry via ETW providers (Note: See issue #6)
 - [Hunt-Sleeping-Beacons](https://github.com/thefLink/Hunt-Sleeping-Beacons) - Beacon behavior analysis
 
 ## Web Endpoint Reference

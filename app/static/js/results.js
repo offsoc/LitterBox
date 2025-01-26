@@ -250,6 +250,32 @@ function formatBytes(bytes) {
 }
 
 
+function renderSection(title, items) {
+    if (!items || items.length === 0) return '';
+    
+    const displayItems = items.slice(0, 25);
+    const remainingCount = items.length - 25;
+    
+    return `
+    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+        <div class="text-sm font-medium text-gray-300 mb-3">
+            ${title} (${items.length})
+        </div>
+        <div class="space-y-2">
+            ${displayItems.map(item => `
+                <div class="text-sm text-gray-400 font-mono break-all bg-gray-900/50 p-2 rounded">
+                    ${item}
+                </div>
+            `).join('')}
+            ${remainingCount > 0 ? `
+                <div class="text-sm text-gray-500 mt-2 p-2">
+                    ... and ${remainingCount} more items
+                </div>
+            ` : ''}
+        </div>
+    </div>`;
+}
+
 // Tools Registry Object (keeping reference to tools)
 const tools = {
     yara: {
@@ -419,6 +445,214 @@ const tools = {
 
                 tools.yara.element.innerHTML = html;
             },
+    },
+
+    checkplz: {
+        element: document.getElementById('threatCheckResults'),
+        statsElement: document.getElementById('threatCheckStats'),
+        render: (results) => {
+            if (results.status === 'error') {
+                tools.checkplz.element.innerHTML = `
+                    <div class="bg-red-500/10 border border-red-900/20 rounded-lg p-4">
+                        <div class="flex items-center space-x-2 text-red-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${results.error}</span>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            const findings = results.findings || {};
+            const scanResults = findings.scan_results || {};
+            const isClean = !findings.initial_threat && !scanResults.detection_offset;
+
+            // Stats Section
+            tools.checkplz.statsElement.innerHTML = `
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-900/30 rounded-lg border ${isClean ? 'border-green-500/30' : 'border-red-500/30'} p-4">
+                        <div class="text-sm text-gray-500">Status</div>
+                        <div class="text-base font-semibold ${isClean ? 'text-green-500' : 'text-red-500'}">
+                            ${isClean ? 'Clean' : (findings.initial_threat || 'Unknown Threat')}
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                        <div class="text-sm text-gray-500">Scan Duration</div>
+                        <div class="text-xl font-semibold text-gray-400">
+                            ${typeof scanResults.scan_duration === 'number' ? scanResults.scan_duration.toFixed(3) + 's' : 'N/A'}
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                        <div class="text-sm text-gray-500">Search Iterations</div>
+                        <div class="text-xl font-semibold text-gray-400">
+                            ${scanResults.search_iterations || 'N/A'}
+                        </div>
+                    </div>
+                </div>`;
+
+            let html = '';
+
+            // File Information Section
+            html += `
+            <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4 mb-6">
+                <div class="text-sm font-medium text-gray-300 mb-3">File Information</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-sm text-gray-500">File Path</div>
+                        <div class="text-sm text-gray-300 font-mono break-all">
+                            ${scanResults.file_path || 'N/A'}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-500">File Size</div>
+                        <div class="text-sm text-gray-300">
+                            ${scanResults.file_size || 'N/A'}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            // Clean State Message
+            if (isClean) {
+                html += `
+                <div class="flex flex-col items-center justify-center py-8 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-green-500 font-medium">No threats detected - File is clean</span>
+                    <span class="text-green-400 text-sm mt-1">Security scan completed successfully</span>
+                </div>`;
+            } else {
+                // Detection Details Section
+                if (scanResults.detection_offset) {
+                    html += `
+                    <div class="bg-red-500/10 rounded-lg border border-red-900/20 p-4 mb-6">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            <span class="text-sm font-medium text-red-500">Threat Detection Details</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-sm text-gray-500">Detection Offset</div>
+                                <div class="text-sm text-red-500 font-mono">${scanResults.detection_offset}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-500">Relative Location</div>
+                                <div class="text-sm text-red-500">${scanResults.relative_location}</div>
+                            </div>
+                            <div class="col-span-2">
+                                <div class="text-sm text-gray-500">Final Threat Detection</div>
+                                <div class="text-sm text-red-500">${scanResults.final_threat_detection}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                // Hex Dump Section (only shown when threats are detected)
+                if (scanResults.hex_dump) {
+                    html += `
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-medium text-gray-300">Showing ±128 bytes around detection point</span>
+                            <button 
+                                onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.textContent)"
+                                class="px-2 py-1 text-xs text-gray-400 hover:text-white border border-gray-700 rounded hover:border-gray-600 transition-colors">
+                                Copy
+                            </button>
+                        </div>
+                        <pre class="text-base font-mono text-gray-400 whitespace-pre-wrap overflow-x-auto p-4 bg-gray-900/50 rounded-lg leading-relaxed">${scanResults.hex_dump}</pre>
+                    </div>`;
+                }
+            }
+
+            tools.checkplz.element.innerHTML = html;
+        }
+    },
+
+    stringnalyzer: {
+       element: document.getElementById('StringnalyzerResults'),
+       statsElement: document.getElementById('StringnalyzerStats'),
+       render: (results) => {
+           if (results.status === 'error') {
+               tools.stringnalyzer.element.innerHTML = `
+                   <div class="bg-red-500/10 border border-red-900/20 rounded-lg p-4">
+                       <div class="flex items-center space-x-2 text-red-500">
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                           </svg>
+                           <span>${results.error}</span>
+                       </div>
+                   </div>`;
+               return;
+           }
+
+           const findings = results.findings || {};
+
+           // Stats Section with Download Button
+           tools.stringnalyzer.statsElement.innerHTML = `
+               <div class="grid grid-cols-2 gap-4 mb-6">
+                   <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                       <div class="text-sm text-gray-500">File Path</div>
+                       <div class="text-sm text-gray-300 font-mono break-all">
+                           ${findings.file_path || 'N/A'}
+                       </div>
+                   </div>
+                   <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
+                       <div class="text-sm text-gray-500">Total Strings</div>
+                       <div class="text-xl font-semibold text-gray-400">
+                           ${findings.total_strings || 0}
+                       </div>
+                   </div>
+               </div>`;
+
+                // Attach click event to the Download Button
+                const downloadButton = document.getElementById('downloadResultsBtn');
+                if (downloadButton) {
+                    downloadButton.addEventListener('click', () => {
+                        const filePath = results.findings.file_path || 'unknown';
+                        const fullFileName = filePath.split('\\').pop().split('/').pop(); // Get file name from path
+                        const actualFileName = fullFileName.split('_').pop(); // Get everything after last underscore
+                        const downloadName = `stringnalyzer_${actualFileName.replace('.exe', '')}.json`;
+                        
+                        const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = downloadName;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                }
+
+           let html = '';
+
+           // All Findings Sections
+           html += `
+           <div class="space-y-4">
+               ${renderSection('Suspicious Strings', findings.found_suspicious_strings)}
+               ${renderSection('Functions Referenced', findings.found_suspicious_functions)}
+               ${renderSection('URLs Found', findings.found_url)}
+               ${renderSection('DLLs Referenced', findings.found_dll)}
+               ${renderSection('IP Addresses', findings.found_ip)}
+               ${renderSection('Paths Found', findings.found_path)}
+               ${renderSection('Files Referenced', findings.found_file)}
+               ${renderSection('Commands Found', findings.found_commands)}
+               ${renderSection('Functions', findings.found_functions)}
+               ${renderSection('Error Messages', findings.found_error_messages)}
+               ${renderSection('Network Indicators', findings.found_network_indicators)}
+               ${renderSection('Registry Keys', findings.found_registry_keys)}
+               ${renderSection('File Operations', findings.found_file_operations)}
+               ${renderSection('Email Addresses', findings.found_emails)}
+               ${renderSection('Domains', findings.found_domains)}
+               ${renderSection('Interesting Strings', findings.found_interesting_strings)}
+           </div>`;
+
+           tools.stringnalyzer.element.innerHTML = html;
+       }
     },
 
     pe_sieve: {
@@ -684,132 +918,6 @@ const tools = {
                 }
                 tools.moneta.element.innerHTML = html;
             }
-    },
-
-    checkplz: {
-        element: document.getElementById('threatCheckResults'),
-        statsElement: document.getElementById('threatCheckStats'),
-        render: (results) => {
-            if (results.status === 'error') {
-                tools.checkplz.element.innerHTML = `
-                    <div class="bg-red-500/10 border border-red-900/20 rounded-lg p-4">
-                        <div class="flex items-center space-x-2 text-red-500">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span>${results.error}</span>
-                        </div>
-                    </div>`;
-                return;
-            }
-
-            const findings = results.findings || {};
-            const scanResults = findings.scan_results || {};
-            const isClean = !findings.initial_threat && !scanResults.detection_offset;
-
-            // Stats Section
-            tools.checkplz.statsElement.innerHTML = `
-                <div class="grid grid-cols-3 gap-4 mb-6">
-                    <div class="bg-gray-900/30 rounded-lg border ${isClean ? 'border-green-500/30' : 'border-red-500/30'} p-4">
-                        <div class="text-sm text-gray-500">Status</div>
-                        <div class="text-base font-semibold ${isClean ? 'text-green-500' : 'text-red-500'}">
-                            ${isClean ? 'Clean' : (findings.initial_threat || 'Unknown Threat')}
-                        </div>
-                    </div>
-                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
-                        <div class="text-sm text-gray-500">Scan Duration</div>
-                        <div class="text-xl font-semibold text-gray-400">
-                            ${typeof scanResults.scan_duration === 'number' ? scanResults.scan_duration.toFixed(3) + 's' : 'N/A'}
-                        </div>
-                    </div>
-                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
-                        <div class="text-sm text-gray-500">Search Iterations</div>
-                        <div class="text-xl font-semibold text-gray-400">
-                            ${scanResults.search_iterations || 'N/A'}
-                        </div>
-                    </div>
-                </div>`;
-
-            let html = '';
-
-            // File Information Section
-            html += `
-            <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4 mb-6">
-                <div class="text-sm font-medium text-gray-300 mb-3">File Information</div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <div class="text-sm text-gray-500">File Path</div>
-                        <div class="text-sm text-gray-300 font-mono break-all">
-                            ${scanResults.file_path || 'N/A'}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-gray-500">File Size</div>
-                        <div class="text-sm text-gray-300">
-                            ${scanResults.file_size || 'N/A'}
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-            // Clean State Message
-            if (isClean) {
-                html += `
-                <div class="flex flex-col items-center justify-center py-8 bg-green-500/10 rounded-lg border border-green-500/20">
-                    <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span class="text-green-500 font-medium">No threats detected - File is clean</span>
-                    <span class="text-green-400 text-sm mt-1">Security scan completed successfully</span>
-                </div>`;
-            } else {
-                // Detection Details Section
-                if (scanResults.detection_offset) {
-                    html += `
-                    <div class="bg-red-500/10 rounded-lg border border-red-900/20 p-4 mb-6">
-                        <div class="flex items-center space-x-2 mb-3">
-                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                            </svg>
-                            <span class="text-sm font-medium text-red-500">Threat Detection Details</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <div class="text-sm text-gray-500">Detection Offset</div>
-                                <div class="text-sm text-red-500 font-mono">${scanResults.detection_offset}</div>
-                            </div>
-                            <div>
-                                <div class="text-sm text-gray-500">Relative Location</div>
-                                <div class="text-sm text-red-500">${scanResults.relative_location}</div>
-                            </div>
-                            <div class="col-span-2">
-                                <div class="text-sm text-gray-500">Final Threat Detection</div>
-                                <div class="text-sm text-red-500">${scanResults.final_threat_detection}</div>
-                            </div>
-                        </div>
-                    </div>`;
-                }
-
-                // Hex Dump Section (only shown when threats are detected)
-                if (scanResults.hex_dump) {
-                    html += `
-                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm font-medium text-gray-300">Showing ±128 bytes around detection point</span>
-                            <button 
-                                onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.textContent)"
-                                class="px-2 py-1 text-xs text-gray-400 hover:text-white border border-gray-700 rounded hover:border-gray-600 transition-colors">
-                                Copy
-                            </button>
-                        </div>
-                        <pre class="text-base font-mono text-gray-400 whitespace-pre-wrap overflow-x-auto p-4 bg-gray-900/50 rounded-lg leading-relaxed">${scanResults.hex_dump}</pre>
-                    </div>`;
-                }
-            }
-
-            tools.checkplz.element.innerHTML = html;
-        }
     },
 
     patriot: {
