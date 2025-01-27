@@ -51,6 +51,71 @@ class TabManager {
     }
 }
 
+// Payload Manager Class
+class PayloadManager {
+    constructor() {
+        this.toggleBtn = document.getElementById('togglePayloadOutput');
+        this.content = document.getElementById('payloadOutputContent');
+        this.chevron = document.getElementById('payloadChevron');
+        this.stdout = document.getElementById('payloadStdout');
+        this.stderr = document.getElementById('payloadStderr');
+        this.stdoutSection = document.getElementById('stdoutSection');
+        this.stderrSection = document.getElementById('stderrSection');
+        this.info = document.getElementById('payloadOutputInfo');
+        this.status = document.getElementById('payloadOutputStatus');
+
+        this.setupToggle();
+    }
+
+    setupToggle() {
+        if (this.toggleBtn && this.content && this.chevron) {
+            this.toggleBtn.addEventListener('click', () => {
+                this.content.classList.toggle('hidden');
+                this.chevron.classList.toggle('rotate-90');
+            });
+        }
+    }
+
+    updatePayloadOutput(results) {
+        if (!results.process_output) return;
+
+        const { stdout, stderr, output_truncated, exit_code } = results.process_output;
+
+        // Update stdout
+        if (stdout && this.stdout && this.stdoutSection) {
+            this.stdout.textContent = stdout;
+            this.stdoutSection.classList.remove('hidden');
+        }
+
+        // Update stderr
+        if (stderr && this.stderr && this.stderrSection) {
+            this.stderr.textContent = stderr;
+            this.stderrSection.classList.remove('hidden');
+        }
+
+        // Update status badge
+        if (stdout || stderr) {
+            this.status.textContent = 'Output Available';
+            this.status.classList.add('bg-green-500/10', 'text-green-500');
+            this.status.classList.remove('bg-gray-800', 'text-gray-400');
+        } else {
+            this.status.textContent = 'No Process Output';
+        }
+
+        // Add additional info
+        if (this.info) {
+            const infoText = [];
+            if (output_truncated) {
+                infoText.push('Output was truncated due to size limitations');
+            }
+            if (exit_code !== null) {
+                infoText.push(`Process exit code: ${exit_code}`);
+            }
+            this.info.textContent = infoText.join(' • ');
+        }
+    }
+}
+
 // Analysis Type Handler
 class AnalysisTypeHandler {
     constructor() {
@@ -74,7 +139,6 @@ class AnalysisTypeHandler {
         }
     }
 }
-
 
 // Analysis Core Logic
 class AnalysisCore {
@@ -230,6 +294,25 @@ class ModalHandler {
         }, 300);
     }
 }
+
+function handleUrlIdentifier() {
+    const urlPath = window.location.pathname;
+    const pathSegments = urlPath.split('/').filter(segment => segment.length > 0);
+    const identifier = pathSegments[pathSegments.length - 1];
+
+    if (isNumeric(identifier)) {
+        const staticButton = document.getElementById('staticAnalysisButton');
+        if (staticButton) {
+            staticButton.style.display = 'none';
+        }
+    }
+
+    function isNumeric(str) {
+        return /^\d+$/.test(str);
+    }
+}
+
+
 
 function getEventTypeColor(type) {
     const colors = {
@@ -770,12 +853,14 @@ const tools = {
                 const isClean = (!findings.total_private_rx && !findings.total_private_rwx && 
                     !findings.total_modified_code && !findings.total_inconsistent_x &&
                     !findings.total_heap_executable && !findings.total_modified_pe_header &&
-                    !findings.total_missing_peb && !findings.total_mismatching_peb) ||
+                    !findings.total_missing_peb && !findings.total_mismatching_peb &&
+                    !findings.total_threads_non_image) ||  // Add new check
                     (findings.total_unsigned_modules > 0 && 
                      !findings.total_private_rx && !findings.total_private_rwx && 
                      !findings.total_modified_code && !findings.total_inconsistent_x &&
                      !findings.total_heap_executable && !findings.total_modified_pe_header &&
-                     !findings.total_missing_peb && !findings.total_mismatching_peb);
+                     !findings.total_missing_peb && !findings.total_mismatching_peb &&
+                     !findings.total_threads_non_image);  // Add new check
 
                 let html = '';
 
@@ -860,14 +945,17 @@ const tools = {
                         { label: 'Missing PEB', value: findings.total_missing_peb },
                         { label: 'Mismatching PEB', value: findings.total_mismatching_peb },
                         { label: 'Unsigned Modules', value: findings.total_unsigned_modules },
+                        { label: 'Threads in Non-Image', value: findings.total_threads_non_image },  // Add new metric
+
                     ]
-                        .map(item => `
+                         .map(item => `
                             <div class="bg-gray-900/30 rounded-lg border ${item.value > 0 ? 'border-red-500/30' : 'border-red-900/10'} p-4">
                                 <div class="text-sm text-gray-500">${item.label}</div>
                                 <div class="text-xl font-semibold ${item.value > 0 ? 'text-red-500' : 'text-gray-300'}">${item.value}</div>
                             </div>`)
                         .join('')}
                 </div>`;
+
 
                 // Suspicious Findings Summary
                 html += `
@@ -885,6 +973,7 @@ const tools = {
                             { condition: findings.total_heap_executable > 0, message: `Critical: Found ${findings.total_heap_executable} executable heap region(s)`, type: 'critical' },
                             { condition: findings.total_modified_code > 0, message: `Critical: Detected ${findings.total_modified_code} modified code region(s)`, type: 'critical' },
                             { condition: findings.total_modified_pe_header > 0, message: `Critical: Found ${findings.total_modified_pe_header} modified PE header(s)`, type: 'critical' },
+                            { condition: findings.total_threads_non_image > 0, message: `Critical: Found ${findings.total_threads_non_image} thread(s) in non-image memory regions`, type: 'critical' },  // Add new warning
                             { condition: findings.total_private_rx > 0, message: `Warning: Found ${findings.total_private_rx} private RX region(s)`, type: 'warning' },
                             { condition: findings.total_inconsistent_x > 0, message: `Warning: Found ${findings.total_inconsistent_x} region(s) with inconsistent executable permissions`, type: 'warning' },
                             { condition: findings.total_missing_peb > 0, message: `Warning: Found ${findings.total_missing_peb} missing PEB module(s)`, type: 'warning' },
@@ -1851,17 +1940,31 @@ const tools = {
             // Set table content
             tools.summary.statsElement.innerHTML = rows.join('');
             document.getElementById('scanDuration').textContent = document.getElementById('analysisTimer').textContent;
+            // Add this part to handle payload output
+            if (results.process_output) {
+                updatePayloadOutput(results);
+            }
 
         }
     },
 };
 
 // Initialize Everything
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+    // Initialize tab navigation
+    const tabManager = new TabManager();
+
+    // Process URL identifier logic
+    handleUrlIdentifier();
+
+    // Initialize modal and analysis handlers
     const modal = new ModalHandler();
     const analysis = new AnalysisCore();
 
-    // Make modal functions globally available
+    // Initialize PayloadManager
+    const payloadManager = new PayloadManager();
+
+    // Make modal functions globally accessible
     window.showDynamicWarning = () => modal.show();
     window.hideDynamicWarning = () => modal.hide();
 
@@ -1869,4 +1972,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (analysis.analysisType && analysis.fileHash) {
         analysis.startAnalysis();
     }
+
+    // Use PayloadManager methods
+    window.updatePayloadOutput = (results) => payloadManager.updatePayloadOutput(results);
 });
+
+
+
+
+

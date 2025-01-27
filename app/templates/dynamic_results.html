@@ -1,3 +1,5 @@
+<!-- app/templates/dynamic_results.html -->
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -330,5 +332,89 @@
             {% endif %}
         </div>
     </div>
+    <!-- Payload Output Section -->
+    <div class="mt-8">
+        <h2 class="text-xl font-medium text-gray-100 mb-4">Process Output</h2>
+        
+        <div class="bg-gray-900/30 rounded-lg border border-gray-800 overflow-hidden">
+            <div class="p-4">
+                <button id="togglePayloadOutput" 
+                        class="w-full flex items-center justify-between text-left">
+                    <div class="flex items-center space-x-2">
+                        <svg id="payloadChevron" 
+                             class="w-5 h-5 text-gray-400 transform transition-transform duration-200" 
+                             fill="none" 
+                             stroke="currentColor" 
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" 
+                                  stroke-linejoin="round" 
+                                  stroke-width="2" 
+                                  d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span class="text-base font-medium text-gray-300">Captured Output</span>
+                    </div>
+                    <span class="text-sm px-2 py-1 rounded-full {{ 'bg-green-500/10 text-green-500' if analysis_results.process_output.stdout or analysis_results.process_output.stderr else 'bg-gray-800 text-gray-400' }}">
+                        {{ 'Output Available' if analysis_results.process_output.stdout or analysis_results.process_output.stderr else 'No Output' }}
+                    </span>
+                </button>
+            </div>
+
+            <!-- Collapsible Content -->
+            <div id="payloadOutputContent" 
+                 class="hidden border-t border-gray-800">
+                <div class="p-4 space-y-4">
+                    <!-- STDOUT Section -->
+                    {% if analysis_results.process_output.stdout %}
+                    <div class="space-y-2">
+                        <h5 class="text-sm font-medium text-gray-400">Standard Output</h5>
+                        <div class="bg-black/30 rounded p-4 font-mono text-sm">
+                            <pre class="text-gray-300 whitespace-pre-wrap">{{ analysis_results.process_output.stdout }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- STDERR Section -->
+                    {% if analysis_results.process_output.stderr %}
+                    <div class="space-y-2">
+                        <h5 class="text-sm font-medium text-gray-400">Standard Error</h5>
+                        <div class="bg-black/30 rounded p-4 font-mono text-sm">
+                            <pre class="text-red-300 whitespace-pre-wrap">{{ analysis_results.process_output.stderr }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Additional Info -->
+                    {% if analysis_results.process_output.output_truncated or analysis_results.process_output.exit_code is not none %}
+                    <!-- Additional Info -->
+                    <div class="text-sm text-gray-500 italic">
+                        {% if analysis_results.process_output %}
+                            {% if analysis_results.process_output.output_truncated is defined and analysis_results.process_output.output_truncated %}
+                                Output was truncated due to size limitations
+                                {% if analysis_results.process_output.exit_code is defined and analysis_results.process_output.exit_code is not none %} • {% endif %}
+                            {% endif %}
+                            {% if analysis_results.process_output.exit_code is defined and analysis_results.process_output.exit_code is not none %}
+                                Process exit code: {{ analysis_results.process_output.exit_code }}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('togglePayloadOutput');
+    const content = document.getElementById('payloadOutputContent');
+    const chevron = document.getElementById('payloadChevron');
+    
+    if (toggleBtn && content && chevron) {
+        toggleBtn.addEventListener('click', function() {
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-90');
+        });
+    }
+});
+</script>
 {% endblock %}

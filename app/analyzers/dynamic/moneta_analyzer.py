@@ -57,6 +57,7 @@ class MonetaAnalyzer(DynamicAnalyzer):
             'total_unsigned_modules': 0,
             'total_missing_peb': 0,
             'total_mismatching_peb': 0,
+            'total_threads_non_image': 0,
             'threads': [],
             'scan_duration': None,
             'raw_output': output
@@ -73,16 +74,14 @@ class MonetaAnalyzer(DynamicAnalyzer):
                 
                 if not line or 'Moneta v1.0' in line or '_____' in line:
                     continue
-                
 
-                    
                 # Scan duration
                 if 'scan completed' in line:
                     duration_match = re.search(r'(\d+\.\d+) second', line)
                     if duration_match:
                         findings['scan_duration'] = float(duration_match.group(1))
                     continue
-                    
+                        
                 # Process info - exact match for '.exe :'
                 if '.exe :' in line:
                     process_match = re.match(r'(.+\.exe)\s*:\s*(\d+)\s*:\s*(x64|Wow64)\s*:\s*(.+)', line)
@@ -137,6 +136,9 @@ class MonetaAnalyzer(DynamicAnalyzer):
                     perms = parts[1].strip()
                     flags = ' '.join(parts[2:])  # Combine all remaining parts
                     
+                    if 'Thread within non-image memory region' in flags:
+                        findings['total_threads_non_image'] += 1
+
                     if 'Abnormal private executable memory' in flags:
                         findings['total_abnormal_private_exec'] += 1
                         
@@ -157,27 +159,9 @@ class MonetaAnalyzer(DynamicAnalyzer):
                     
                     if 'Inconsistent +x between disk and memory' in flags:
                         findings['total_inconsistent_x'] += 1
-                 
+                     
         except Exception as e:
             findings['parse_error'] = str(e)
             print("Error:", str(e))
-            
+                
         return findings
-
-'''
-            print("\n=== Final Counts ===")
-            print("Total Regions:", findings['total_regions'])
-            print("Abnormal Private Executable:", findings['total_abnormal_private_exec'])
-            print("Private RWX:", findings['total_private_rwx'])
-            print("Private RX:", findings['total_private_rx'])
-            print("Heap Executable:", findings['total_heap_executable'])
-            print("Modified Code:", findings['total_modified_code'])
-            print("Modified PE Header:", findings['total_modified_pe_header'])
-            print("Inconsistent X:", findings['total_inconsistent_x'])
-            print("Unsigned Modules:", findings['total_unsigned_modules'])
-            print("Missing PEB Modules:", findings['total_missing_peb'])
-            print("Mismatching PEB Modules:", findings['total_mismatching_peb'])
-            print("Threads:", len(findings['threads']))
-            for thread in findings['threads']:
-                print(f"  Thread: {thread['tid']}")
-'''  

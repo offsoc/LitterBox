@@ -1,3 +1,5 @@
+<!-- app/templates/static_results.html -->
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -47,7 +49,7 @@
     </div>
 
     <!-- Scanner Results Table -->
-    <div class="bg-gray-900/30 rounded-lg border border-gray-800 overflow-hidden">
+    <div class="bg-gray-900/30 rounded-lg border border-gray-800 overflow-hidden mb-6">
         <table class="w-full">
             <thead>
                 <tr class="border-b border-gray-800">
@@ -101,6 +103,64 @@
         </table>
     </div>
 
-    <!-- Rest of your existing detailed results code here -->
+    <!-- String Analysis Results -->
+    <div class="bg-gray-900/30 rounded-lg border border-gray-800 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-medium text-gray-100">String Analysis Results</h2>
+            <div class="text-sm text-gray-400">
+                Total Strings: {{ stringnalyzer_results.findings.total_strings if stringnalyzer_results.findings is defined else 0 }}
+            </div>
+        </div>
+
+        <!-- Findings Table -->
+        <div class="space-y-4">
+            {% macro render_findings_row(title, items) %}
+                {% if items and items|length > 0 %}
+                    <div class="border-t border-gray-800 py-4 first:border-0 first:pt-0">
+                        <h3 class="text-base font-medium text-gray-300 mb-2">{{ title }} <span class="text-sm text-gray-500">({{ items|length }})</span></h3>
+                        <div class="grid grid-cols-1 gap-2">
+                            {% for item in items[:5] %}
+                                <div class="text-sm text-gray-400 bg-gray-900/30 p-2 rounded">{{ item }}</div>
+                            {% endfor %}
+                            {% if items|length > 5 %}
+                                <div class="text-sm text-gray-500">... and {{ items|length - 5 }} more items</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endmacro %}
+
+            {% set findings = stringnalyzer_results.findings if stringnalyzer_results.findings is defined else {} %}
+
+            <!-- Suspicious strings get special treatment -->
+            {% if findings.found_suspicious_strings and findings.found_suspicious_strings|length > 0 %}
+                <div class="bg-red-500/5 border border-red-900/20 rounded-lg p-4 mb-4">
+                    <h3 class="text-base font-medium text-red-400 mb-2">
+                        Suspicious Strings <span class="text-sm text-red-500/70">({{ findings.found_suspicious_strings|length }})</span>
+                    </h3>
+                    <div class="grid grid-cols-1 gap-2">
+                        {% for item in findings.found_suspicious_strings[:5] %}
+                            <div class="text-sm text-red-300 bg-red-500/10 p-2 rounded">{{ item }}</div>
+                        {% endfor %}
+                        {% if findings.found_suspicious_strings|length > 5 %}
+                            <div class="text-sm text-red-400/70">... and {{ findings.found_suspicious_strings|length - 5 }} more suspicious items</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Regular findings -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    {{ render_findings_row('URLs Found', findings.found_url) }}
+                    {{ render_findings_row('Paths Found', findings.found_path) }}
+                </div>
+                <div>
+                    {{ render_findings_row('IP Addresses', findings.found_ip) }}
+                    {{ render_findings_row('Files Referenced', findings.found_file) }}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

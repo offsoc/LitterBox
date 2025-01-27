@@ -59,7 +59,7 @@ analysis:
     moneta:
       enabled: true
       tool_path: ".\\Scanners\\Moneta\\Moneta64.exe"
-      command: "{tool_path} -m ioc -p {pid} --option from-base"
+      command: "{tool_path} -m ioc -p {pid} --option from-base suppress-banner"
       timeout: 120
     
     patriot:

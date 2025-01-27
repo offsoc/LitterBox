@@ -310,7 +310,6 @@ def register_routes(app):
             app.logger.debug(f"Static results loaded: {bool(static_results)}, Dynamic results loaded: {bool(dynamic_results)}")
 
             # Calculate risk
-            # Calculate risk using new unified function
             risk_score, risk_factors = utils.calculate_risk(
                 analysis_type='file',
                 file_info=file_info,
@@ -394,6 +393,7 @@ def register_routes(app):
                     if isinstance(checkplz_findings, dict):
                         checkplz_detections = 1 if checkplz_findings.get('initial_threat') else 0
                     app.logger.debug(f"Checkplz detections: {checkplz_detections}")
+                    stringnalyzer_results = analysis_results.get('stringnalyzer', {})
 
                     # Format scan duration
                     formatted_duration = "00:00.000"
@@ -418,6 +418,7 @@ def register_routes(app):
                         analysis_results=analysis_results,
                         yara_detections=yara_detections,
                         checkplz_detections=checkplz_detections,
+                        stringnalyzer_results=stringnalyzer_results,  # Add this line
                         scan_duration=formatted_duration
                     )
 

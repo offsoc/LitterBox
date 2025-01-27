@@ -2,12 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.6.5] - 2025-01-27
+### Added
+- Captured and displayed payload output for better analysis.
+- Enhanced the Stringnalyzer scanner with improved functionality.
+
+### Changed
+- Summary section now includes Stringnalyzer & Payload output results.
+- Improved HTML and JavaScript code for analysis results. 
+
+### Fixed
+- Resolved missing IOC issue in Moneta.
+
+
 ## [v1.6.0] - 2025-01-26
 ### Added
 - New Static analyzer Stringnalyzer implementation
 
 ### Fixed
 - Refactoring health check implementation to use configuration file settings
+
 
 ## [v1.5.1] - 2025-01-25
 ### Added
@@ -20,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - Improved error handling for payloads that terminate before scan completion
 - Enhanced UI/UX for clearer error messaging and handling
 
+
 ## [v1.5.0] - 2025-01-11
 ### Added
 - New Dynamic analyzer RedEdr Scanner implementation
@@ -31,10 +46,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Multiple bug fixes
 
+
 ## [v1.2.1] - 2025-01-06
 ### Added
 - Debug mode enabled
 - Small improvements to core functionality
+
 
 ## [v1.2.0] - 2025-01-05
 ### Added
@@ -49,6 +66,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Code optimization and cleanup
 - Risk calculation refinements
+
 
 ## [v1.0.0] - 2025-01-04
 ### Added

@@ -178,7 +178,7 @@ class AnalysisManager:
         return results
 
     def run_dynamic_analysis(self, target, is_pid: bool = False, cmd_args: list = None) -> dict:
-        """Run dynamic analysis with timing and process output capture."""
+        """Run dynamic analysis with timing, process output capture, and RedEdr integration."""
         self.logger.debug(f"Starting dynamic analysis - Target: {target}, is_pid: {is_pid}, args: {cmd_args}")
         start_time = time.time()
         results = {}
@@ -196,8 +196,7 @@ class AnalysisManager:
                         target_name = target.split('\\')[-1]  # Extract filename from path
                         rededr = RedEdrAnalyzer(self.config)
                         if rededr.start_tool(target_name):
-                            # Get ETW setup wait time from config
-                            etw_wait_time = rededr_config.get('etw_wait_time', 5)  # Default to 5 seconds if not specified
+                            etw_wait_time = rededr_config.get('etw_wait_time', 5)
                             self.logger.debug(f"RedEdr initialized, waiting {etw_wait_time} seconds for ETW setup")
                             time.sleep(etw_wait_time)
                         else:
@@ -221,7 +220,6 @@ class AnalysisManager:
                     error_msg = str(e)
                     self.logger.error(f"Process startup failed: {error_msg}")
                     
-                    # Check if this was an early termination case
                     if "terminated after" in error_msg:
                         init_wait = self.config.get('analysis', {}).get('process', {}).get('init_wait_time', 5)
                         results['status'] = 'early_termination'
@@ -239,7 +237,6 @@ class AnalysisManager:
                             'cmd_args': cmd_args if cmd_args else []
                         }
                     
-                    # Add metadata even for failed analysis
                     results['analysis_metadata'] = {
                         'total_duration': time.time() - start_time,
                         'timestamp': time.time(),
@@ -250,36 +247,72 @@ class AnalysisManager:
                     
                     return results
 
-                # 3. Run analyzers only if process started successfully
+                # 3. Run analyzers if process started successfully
                 if not early_termination:
+                    # Run all analyzers except RedEdr
                     regular_analyzers = {k: v for k, v in self.dynamic_analyzers.items() 
                                        if k != 'rededr'}
                     other_results = self._run_analyzers(regular_analyzers, pid, 'dynamic')
                     results.update(other_results)
-                    
-                    # Only cleanup if process didn't terminate early
+
+                    # 4. Capture process output before cleanup
                     if process:
-                        self.logger.debug("Cleaning up target process")
-                        self._cleanup_process(process, is_pid)
-                
-                # Always get RedEdr results if it was started
-                if rededr:
-                    self.logger.debug("Getting RedEdr events")
-                    results['rededr'] = rededr.get_results()
-                    self.logger.debug("RedEdr findings:")
-                    self.logger.debug(results['rededr'].get('findings'))
+                        self.logger.debug("Capturing process output")
+                        try:
+                            # Read all output with a timeout, ensuring the process doesn't block indefinitely
+                            stdout, stderr = process.communicate(timeout=1)
+                            results['process_output'] = {
+                                'stdout': stdout.strip() if stdout else '',
+                                'stderr': stderr.strip() if stderr else '',
+                                'had_output': bool(stdout.strip() or stderr.strip()),
+                                'output_truncated': False  # No truncation since we capture everything till now
+                            }
+                            self.logger.debug("Process output captured successfully")
+                        except subprocess.TimeoutExpired:
+                            # If timeout, kill the process and capture everything up to this point
+                            self.logger.debug("Output capture timed out; killing the process")
+                            self._cleanup_process(process, is_pid)
+                            stdout, stderr = process.communicate()  # Retrieve all output till now
+                            results['process_output'] = {
+                                'stdout': stdout.strip() if stdout else '',
+                                'stderr': stderr.strip() if stderr else '',
+                                'had_output': bool(stdout.strip() or stderr.strip()),
+                                'output_truncated': False,  # Still no truncation, as we have all output till now
+                                'note': 'Process killed after timeout'
+                            }
+                        except Exception as e:
+                            # Handle other exceptions during output capture
+                            
+                            self.logger.error(f"Error capturing process output: {e}")
+                            results['process_output'] = {
+                                'error': str(e),
+                                'had_output': False,
+                                'output_truncated': False
+                            }
+
+                        # Cleanup after capturing output
+                        
+
+
                     
-                    self.logger.debug("Cleaning up RedEdr")
-                    try:
-                        rededr.cleanup()
-                    except Exception as e:
-                        self.logger.error(f"Error cleaning up RedEdr: {e}")
-            
+                    # 6. Get RedEdr results if it was started
+                    if rededr:
+                        self.logger.debug("Getting RedEdr events")
+                        results['rededr'] = rededr.get_results()
+                        
+                        #self.logger.debug(results['rededr'].get('findings'))
+                        
+                        self.logger.debug("Cleaning up RedEdr")
+                        try:
+                            rededr.cleanup()
+                        except Exception as e:
+                            self.logger.error(f"Error cleaning up RedEdr: {e}")
+                
             else:  # PID-based analysis
                 process, pid = self._validate_process(target, is_pid)
                 results = self._run_analyzers(self.dynamic_analyzers, pid, 'dynamic')
             
-            # Add metadata
+            # Add analysis metadata
             results['analysis_metadata'] = {
                 'total_duration': time.time() - start_time,
                 'timestamp': time.time(),
@@ -307,7 +340,6 @@ class AnalysisManager:
                 
         self.logger.debug(f"Dynamic analysis completed in {time.time() - start_time:.2f} seconds")
         return results
-
     def _validate_process(self, target, is_pid: bool, cmd_args: list = None) -> tuple:
         """
         Validate and prepare process for dynamic analysis.
@@ -345,11 +377,15 @@ class AnalysisManager:
             startupinfo.wShowWindow = subprocess.SW_HIDE
 
             try:
+                # Create process with non-blocking pipes
                 process = subprocess.Popen(
                     command,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    startupinfo=startupinfo
+                    startupinfo=startupinfo,
+                    bufsize=1,  # Line buffered
+                    text=True,  # Use text mode instead of universal_newlines
+
                 )
                 pid = process.pid
                 self.logger.debug(f"Process started with PID: {pid}")

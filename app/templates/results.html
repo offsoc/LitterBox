@@ -278,6 +278,56 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Payload Output Section -->
+                    <div class="bg-gray-900/30 rounded-lg border border-gray-800 overflow-hidden">
+                        <div class="p-4">
+                            <button id="togglePayloadOutput" 
+                                    class="w-full flex items-center justify-between text-left">
+                                <div class="flex items-center space-x-2">
+                                    <svg id="payloadChevron" 
+                                         class="w-5 h-5 text-gray-400 transform transition-transform duration-200" 
+                                         fill="none" 
+                                         stroke="currentColor" 
+                                         viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" 
+                                              stroke-linejoin="round" 
+                                              stroke-width="2" 
+                                              d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    <h4 class="text-base font-medium text-gray-300">Process Output</h4>
+                                </div>
+                                <span id="payloadOutputStatus" 
+                                      class="text-sm px-2 py-1 rounded-full bg-gray-800 text-gray-400">
+                                    Waiting...
+                                </span>
+                            </button>
+                        </div>
+
+                        <!-- Collapsible Content -->
+                        <div id="payloadOutputContent" 
+                             class="hidden border-t border-gray-800">
+                            <div class="p-4 space-y-4">
+                                <!-- Output sections only shown when they have content -->
+                                <div id="stdoutSection" class="space-y-2 hidden">
+                                    <h5 class="text-sm font-medium text-gray-400">Standard Output</h5>
+                                    <div class="bg-black/30 rounded p-4 font-mono text-sm">
+                                        <pre id="payloadStdout" class="text-gray-300 whitespace-pre-wrap"></pre>
+                                    </div>
+                                </div>
+
+                                <div id="stderrSection" class="space-y-2 hidden">
+                                    <h5 class="text-sm font-medium text-gray-400">Standard Error</h5>
+                                    <div class="bg-black/30 rounded p-4 font-mono text-sm">
+                                        <pre id="payloadStderr" class="text-red-300 whitespace-pre-wrap"></pre>
+                                    </div>
+                                </div>
+
+                                <!-- Additional Info -->
+                                <div id="payloadOutputInfo" class="text-sm text-gray-500 italic"></div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
             <!-- Dynamic Analysis Tabs -->
@@ -325,51 +375,4 @@
 {% block scripts %}
   <!-- Include scripts in the right order -->
   <script src="{{ url_for('static', filename='js/results.js') }}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const tabs = document.querySelectorAll('.tab-button');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', function () {
-                const target = this.dataset.tab;
-
-                // Hide all tab content and deactivate all tabs
-                tabContents.forEach(content => content.classList.add('hidden'));
-                tabs.forEach(tab => tab.classList.remove('border-red-500', 'text-white'));
-
-                // Show target tab content and activate tab
-                document.getElementById(target).classList.remove('hidden');
-                this.classList.add('border-red-500', 'text-white');
-            });
-        });
-
-        // Activate the first tab by default
-        if (tabs.length > 0) {
-            tabs[0].click();
-        }
-    });
-    document.addEventListener('DOMContentLoaded', function () {
-        // Function to check if a string is purely numeric
-        function isNumeric(str) {
-            return /^\d+$/.test(str);
-        }
-
-        // Extract the identifier from the URL
-        const urlPath = window.location.pathname; // e.g., /analyze/dynamic/10648
-        const pathSegments = urlPath.split('/').filter(segment => segment.length > 0);
-        const identifier = pathSegments[pathSegments.length - 1]; // Last segment
-
-        // Determine if the identifier is numeric (PID) or alphanumeric (File Hash)
-        const isPID = isNumeric(identifier);
-
-        // If it's a PID scan, hide the "Run Static Analysis" button
-        if (isPID) {
-            const staticButton = document.getElementById('staticAnalysisButton');
-            if (staticButton) {
-                staticButton.style.display = 'none';
-            }
-        }
-    });
-</script>
 {% endblock %}
