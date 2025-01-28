@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v1.6.5] - 2025-01-27
+## [v1.6.1] - 2025-01-27
 ### Added
 - Captured and displayed payload output for better analysis.
 - Enhanced the Stringnalyzer scanner with improved functionality.
