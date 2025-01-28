@@ -58,14 +58,14 @@
                             </h3>
                             <div class="flex flex-wrap justify-center gap-3">
                                 <span class="text-base text-gray-400">Supported formats:</span>
-                                {% for ext in config.upload.allowed_extensions %}
+                                {% for ext in config.utils.allowed_extensions %}
                                 <span class="px-3 py-1.5 text-base bg-red-500/5 rounded-lg text-red-400 font-mono border border-red-900/20">
                                     .{{ ext }}
                                 </span>
                                 {% endfor %}
                             </div>
                             <div class="text-base text-gray-400 pt-2">
-                                Maximum file size: {{ (config.upload.max_file_size / 1024 / 1024) | round(1) }} MB
+                                Maximum file size: {{ (config.utils.max_file_size / 1024 / 1024) | round(1) }} MB
                             </div>
                         </div>
                     </div>

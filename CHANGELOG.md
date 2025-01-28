@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Summary section now includes Stringnalyzer & Payload output results.
 - Improved HTML and JavaScript code for analysis results. 
+- Renamed the 'upload' section in the YAML config file to 'util'.
 
 ### Fixed
 - Resolved missing IOC issue in Moneta.

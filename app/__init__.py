@@ -18,7 +18,7 @@ def create_app():
     app.name = config['application']['name']
 
     # Ensure upload and temp directories exist
-    for folder in [config['upload']['upload_folder']]:
+    for folder in [config['utils']['upload_folder']]:
         os.makedirs(folder, exist_ok=True)
 
     # Register routes

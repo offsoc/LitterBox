@@ -34,7 +34,7 @@ class Utils:
             bool: True if allowed, False otherwise.
         """
         return '.' in filename and \
-               filename.rsplit('.', 1)[1].lower() in self.config['upload']['allowed_extensions']
+               filename.rsplit('.', 1)[1].lower() in self.config['utils']['allowed_extensions']
 
     def calculate_entropy(self, data):
         """
@@ -278,8 +278,8 @@ class Utils:
         extension = os.path.splitext(original_filename)[1].lower()
         filename = f"{md5_hash}_{original_filename}"
         
-        upload_folder = self.config['upload']['upload_folder']
-        result_folder = self.config['upload']['result_folder']
+        upload_folder = self.config['utils']['upload_folder']
+        result_folder = self.config['utils']['result_folder']
         
         os.makedirs(upload_folder, exist_ok=True)
         filepath = os.path.join(upload_folder, filename)
@@ -771,51 +771,33 @@ class Utils:
             'hsb': 0
         }
         try:
-            # YARA - Get total matches
+            # YARA - unchanged
             yara_matches = results.get('yara', {}).get('matches', [])
-            counts['yara'] = len(yara_matches) if isinstance(yara_matches, list) else 0
-        except (TypeError, ValueError):
-            pass
+            counts['yara'] = len({match.get('rule') for match in yara_matches if match.get('rule')}) if isinstance(yara_matches, list) else 0
 
-        try:
-            # PE-sieve - Count all findings
+            # PE-sieve - unchanged
             pesieve_findings = results.get('pe_sieve', {}).get('findings', {})
-            total_findings = sum(
-                value for key, value in pesieve_findings.items()
-                if isinstance(value, (int, float)) and key != 'total_scanned'
-            )
-            counts['pesieve'] = total_findings
-        except (TypeError, ValueError):
-            pass
+            counts['pesieve'] = int(pesieve_findings.get('total_suspicious', 0) or 0)
 
-        try:
-            # Moneta - Count all findings
+            # Moneta - only count actual suspicious findings
             moneta_findings = results.get('moneta', {}).get('findings', {})
-            total_findings = sum(
-                value for key, value in moneta_findings.items()
-                if isinstance(value, (int, float)) and key.startswith('total_') and key != 'total_regions'
+            non_detection_fields = ['total_regions', 'total_unsigned_modules', 'scan_duration']
+            counts['moneta'] = sum(
+                int(moneta_findings.get(key, 0) or 0)
+                for key in moneta_findings 
+                if key.startswith('total_') and key not in non_detection_fields
             )
-            counts['moneta'] = total_findings
-        except (TypeError, ValueError):
-            pass
 
-        try:
-            # Patriot - Get all findings
+            # Patriot - unchanged
             patriot_findings = results.get('patriot', {}).get('findings', {}).get('findings', [])
             counts['patriot'] = len(patriot_findings) if isinstance(patriot_findings, list) else 0
-        except (TypeError, ValueError):
-            pass
 
-        try:
-            # HSB - Get all findings from all detections
-            hsb_findings = results.get('hsb', {}).get('findings', {}).get('detections', [])
-            total_findings = sum(
-                len(detection.get('findings', [])) 
-                for detection in hsb_findings 
-                if isinstance(detection, dict)
-            )
-            counts['hsb'] = total_findings
-        except (TypeError, ValueError):
+            # HSB - unchanged
+            hsb_findings = results.get('hsb', {}).get('findings', {})
+            if hsb_findings and hsb_findings.get('detections'):
+                counts['hsb'] = len(hsb_findings['detections'][0].get('findings', []))
+
+        except (TypeError, ValueError, IndexError):
             pass
 
         return counts

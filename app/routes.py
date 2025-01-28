@@ -98,15 +98,15 @@ def register_routes(app):
                     return jsonify({'error': error_msg}), 404
 
                 # Define result_path for PID-based dynamic analysis
-                result_folder = os.path.join(utils.config['upload']['result_folder'], f'dynamic_{pid}')
+                result_folder = os.path.join(utils.config['utils']['result_folder'], f'dynamic_{pid}')
                 os.makedirs(result_folder, exist_ok=True)
                 result_path = result_folder
                 app.logger.debug(f"Result path for PID {pid}: {result_path}")
             else:
                 # Look for file based on hash
                 app.logger.debug(f"Looking for file with hash: {target}")
-                file_path = utils.find_file_by_hash(target, app.config['upload']['upload_folder'])
-                result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+                file_path = utils.find_file_by_hash(target, app.config['utils']['upload_folder'])
+                result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
                 if not file_path:
                     app.logger.debug(f"File with hash {target} not found in upload folder.")
                     return jsonify({'error': 'File not found'}), 404
@@ -222,7 +222,7 @@ def register_routes(app):
             if target.isdigit() and analysis_type == 'dynamic':
                 pid = target
                 app.logger.debug(f"Processing dynamic analysis request for PID: {pid}")
-                result_folder = os.path.join(app.config['upload']['result_folder'], f'dynamic_{pid}')
+                result_folder = os.path.join(app.config['utils']['result_folder'], f'dynamic_{pid}')
                 app.logger.debug(f"Looking for results in folder: {result_folder}")
                 
                 if not os.path.exists(result_folder):
@@ -281,7 +281,7 @@ def register_routes(app):
 
             # Handle file-based analysis
             app.logger.debug(f"Processing file-based analysis for hash: {target}")
-            result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+            result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
             if not result_path:
                 app.logger.debug(f"No results found for hash: {target}")
                 return render_template('error.html', error='Results not found'), 404
@@ -447,7 +447,6 @@ def register_routes(app):
             app.logger.error("Traceback:", exc_info=True)  # This will log the full traceback
             return render_template('error.html', error=str(e)), 500
 
-
     @app.route('/summary', methods=['GET'])
     def summary_page():
         """Route for the summary page"""
@@ -459,7 +458,7 @@ def register_routes(app):
         try:
             app.logger.debug("Starting to generate files and PID-based analysis summaries.")
             
-            results_dir = app.config['upload']['result_folder']
+            results_dir = app.config['utils']['result_folder']
             file_based_summary = {}
             pid_based_summary = {}
 
@@ -625,6 +624,7 @@ def register_routes(app):
                 'error': str(e)
             }), 500
 
+
     @app.route('/cleanup', methods=['POST'])
     def cleanup():
         try:
@@ -637,7 +637,7 @@ def register_routes(app):
             }
 
             # Clean uploads folder
-            upload_folder = app.config['upload']['upload_folder']
+            upload_folder = app.config['utils']['upload_folder']
             if os.path.exists(upload_folder):
                 app.logger.debug(f"Cleaning uploads folder: {upload_folder}")
                 try:
@@ -657,7 +657,7 @@ def register_routes(app):
                     results['errors'].append(f"Error accessing uploads folder: {str(e)}")
 
             # Clean result folders
-            result_folder = app.config['upload']['result_folder']
+            result_folder = app.config['utils']['result_folder']
             if os.path.exists(result_folder):
                 app.logger.debug(f"Cleaning result folders: {result_folder}")
                 try:
@@ -719,7 +719,7 @@ def register_routes(app):
         try:
             app.logger.debug("Starting health check.")
             config = app.config
-            upload_config = config.get('upload', {})
+            upload_config = config.get('utils', {})
             analysis_config = config.get('analysis', {})
             issues = []
 
@@ -797,8 +797,8 @@ def register_routes(app):
     def delete_file(target):
         try:
             app.logger.debug(f"Deleting file: {target}")
-            upload_path = utils.find_file_by_hash(target, app.config['upload']['upload_folder'])
-            result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+            upload_path = utils.find_file_by_hash(target, app.config['utils']['upload_folder'])
+            result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
             analysis_path = os.path.join('.', 'Scanners', 'PE-Sieve', 'Analysis')
 
             deleted = {'upload': False, 'result': False, 'analysis': False}
@@ -844,7 +844,7 @@ def register_routes(app):
     def api_static_results(target):
         try:
             app.logger.debug(f"Fetching static analysis results for target: {target}")
-            result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+            result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
             if not result_path:
                 app.logger.warning(f"Static results not found for target: {target}")
                 return jsonify({'error': 'Results not found'}), 404
@@ -869,10 +869,10 @@ def register_routes(app):
             app.logger.debug(f"Fetching dynamic analysis results for target: {target}")
 
             if target.isdigit():
-                result_folder = os.path.join(app.config['upload']['result_folder'], f'dynamic_{target}')
+                result_folder = os.path.join(app.config['utils']['result_folder'], f'dynamic_{target}')
                 dynamic_path = os.path.join(result_folder, 'dynamic_analysis_results.json')
             else:
-                result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+                result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
                 if not result_path:
                     app.logger.warning(f"Dynamic results not found for target: {target}")
                     return jsonify({'error': 'Results not found'}), 404
@@ -895,7 +895,7 @@ def register_routes(app):
     def api_file_info(target):
         try:
             app.logger.debug(f"Fetching file info for target: {target}")
-            result_path = utils.find_file_by_hash(target, app.config['upload']['result_folder'])
+            result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
             if not result_path:
                 app.logger.warning(f"File info not found for target: {target}")
                 return jsonify({'error': 'File info not found'}), 404
@@ -913,6 +913,7 @@ def register_routes(app):
             app.logger.error(f"Error fetching file info for target {target}: {e}")
             return jsonify({'error': str(e)}), 500
     
+
     @app.errorhandler(404)
     def page_not_found(error):
         app.logger.debug(f"Page not found: {request.path}")

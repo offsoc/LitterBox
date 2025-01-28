@@ -5,7 +5,7 @@ application:
   port: 1337
   debug: false
 
-upload:
+utils:
   allowed_extensions:
     - exe
     - dll
