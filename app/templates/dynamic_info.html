@@ -167,33 +167,42 @@
                     <td class="px-6 py-4 text-base {{ 'text-red-500' if moneta_detections else 'text-gray-400' }}">{{ moneta_detections }}</td>
                     <td class="px-6 py-4">
                         {% if moneta_detections %}
-                            {% set findings = analysis_results.moneta.findings %}
                             <div class="text-base text-gray-400">
-                                {% if findings.total_private_rwx > 0 %}
-                                    <div>Private RWX: {{ findings.total_private_rwx }}</div>
-                                {% endif %}
-                                {% if findings.total_private_rx > 0 %}
-                                    <div>Private RX: {{ findings.total_private_rx }}</div>
-                                {% endif %}
-                                {% if findings.total_modified_code > 0 %}
-                                    <div>Modified Code: {{ findings.total_modified_code }}</div>
-                                {% endif %}
-                                {% if findings.total_heap_executable > 0 %}
-                                    <div>Heap Executable: {{ findings.total_heap_executable }}</div>
-                                {% endif %}
-                                {% if findings.total_missing_peb > 0 %}
-                                    <div>Missing PEB: {{ findings.total_missing_peb }}</div>
-                                {% endif %}
-                                {% if findings.total_mismatching_peb > 0 %}
-                                    <div>Mismatching PEB: {{ findings.total_mismatching_peb }}</div>
-                                {% endif %}
+                                {% for key, value in analysis_results.moneta.findings.items() %}
+                                    {% if value is number and value > 0 and key != 'scan_duration' %}
+                                        <div class="mb-1">
+                                            {% if key == 'total_regions' %}
+                                                Total Regions: {{ value }}
+                                            {% elif key == 'total_private_rx' %}
+                                                Private RX: {{ value }}
+                                            {% elif key == 'total_private_rwx' %}
+                                                Private RWX: {{ value }}
+                                            {% elif key == 'total_abnormal_private_exec' %}
+                                                Abnormal Private Executable: {{ value }}
+                                            {% elif key == 'total_heap_executable' %}
+                                                Heap Executable: {{ value }}
+                                            {% elif key == 'total_modified_code' %}
+                                                Modified Code: {{ value }}
+                                            {% elif key == 'total_modified_pe_header' %}
+                                                Modified PE Headers: {{ value }}
+                                            {% elif key == 'total_inconsistent_x' %}
+                                                Inconsistent Execute Flags: {{ value }}
+                                            {% elif key == 'total_missing_peb' %}
+                                                Missing PEB: {{ value }}
+                                            {% elif key == 'total_mismatching_peb' %}
+                                                Mismatching PEB: {{ value }}
+                                            {% elif key == 'total_threads_non_image' %}
+                                                Threads in Non-Image Memory: {{ value }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
                         {% else %}
                             <span class="text-base text-gray-400">No anomalies detected</span>
                         {% endif %}
                     </td>
                 </tr>
-
                 <!-- Patriot Results Row -->
                 <tr>
                     <td class="px-6 py-4 text-base text-gray-300">Patriot</td>
@@ -353,8 +362,8 @@
                         </svg>
                         <span class="text-base font-medium text-gray-300">Captured Output</span>
                     </div>
-                    <span class="text-sm px-2 py-1 rounded-full {{ 'bg-green-500/10 text-green-500' if analysis_results.process_output.stdout or analysis_results.process_output.stderr else 'bg-gray-800 text-gray-400' }}">
-                        {{ 'Output Available' if analysis_results.process_output.stdout or analysis_results.process_output.stderr else 'No Output' }}
+                    <span class="text-sm px-2 py-1 rounded-full {{ 'bg-green-500/10 text-green-500' if analysis_results.get('process_output', {}).get('stdout') or analysis_results.get('process_output', {}).get('stderr') else 'bg-gray-800 text-gray-400' }}">
+                        {{ 'Output Available' if analysis_results.get('process_output', {}).get('stdout') or analysis_results.get('process_output', {}).get('stderr') else 'No Output' }}
                     </span>
                 </button>
             </div>
@@ -364,37 +373,34 @@
                  class="hidden border-t border-gray-800">
                 <div class="p-4 space-y-4">
                     <!-- STDOUT Section -->
-                    {% if analysis_results.process_output.stdout %}
+                    {% if analysis_results.get('process_output', {}).get('stdout') %}
                     <div class="space-y-2">
                         <h5 class="text-sm font-medium text-gray-400">Standard Output</h5>
                         <div class="bg-black/30 rounded p-4 font-mono text-sm">
-                            <pre class="text-gray-300 whitespace-pre-wrap">{{ analysis_results.process_output.stdout }}</pre>
+                            <pre class="text-gray-300 whitespace-pre-wrap">{{ analysis_results.get('process_output', {}).get('stdout') }}</pre>
                         </div>
                     </div>
                     {% endif %}
 
                     <!-- STDERR Section -->
-                    {% if analysis_results.process_output.stderr %}
+                    {% if analysis_results.get('process_output', {}).get('stderr') %}
                     <div class="space-y-2">
                         <h5 class="text-sm font-medium text-gray-400">Standard Error</h5>
                         <div class="bg-black/30 rounded p-4 font-mono text-sm">
-                            <pre class="text-red-300 whitespace-pre-wrap">{{ analysis_results.process_output.stderr }}</pre>
+                            <pre class="text-red-300 whitespace-pre-wrap">{{ analysis_results.get('process_output', {}).get('stderr') }}</pre>
                         </div>
                     </div>
                     {% endif %}
 
                     <!-- Additional Info -->
-                    {% if analysis_results.process_output.output_truncated or analysis_results.process_output.exit_code is not none %}
-                    <!-- Additional Info -->
+                    {% if analysis_results.get('process_output', {}) %}
                     <div class="text-sm text-gray-500 italic">
-                        {% if analysis_results.process_output %}
-                            {% if analysis_results.process_output.output_truncated is defined and analysis_results.process_output.output_truncated %}
-                                Output was truncated due to size limitations
-                                {% if analysis_results.process_output.exit_code is defined and analysis_results.process_output.exit_code is not none %} • {% endif %}
-                            {% endif %}
-                            {% if analysis_results.process_output.exit_code is defined and analysis_results.process_output.exit_code is not none %}
-                                Process exit code: {{ analysis_results.process_output.exit_code }}
-                            {% endif %}
+                        {% if analysis_results.get('process_output', {}).get('output_truncated') %}
+                            Output was truncated due to size limitations
+                            {% if analysis_results.get('process_output', {}).get('exit_code') is not none %} • {% endif %}
+                        {% endif %}
+                        {% if analysis_results.get('process_output', {}).get('exit_code') is not none %}
+                            Process exit code: {{ analysis_results.get('process_output', {}).get('exit_code') }}
                         {% endif %}
                     </div>
                     {% endif %}

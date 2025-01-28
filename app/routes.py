@@ -266,7 +266,7 @@ def register_routes(app):
                 app.logger.debug(f"Extracted detection counts: {detections}")
 
                 return render_template(
-                    'dynamic_results.html',
+                    'dynamic_info.html',
                     file_info=None,
                     analysis_results=dynamic_results,
                     yara_detections=detections['yara'],
@@ -411,9 +411,9 @@ def register_routes(app):
                         app.logger.error(f"Error formatting scan duration: {e}")
                         app.logger.debug(f"Checkplz results structure: {analysis_results.get('checkplz', {})}")
 
-                    app.logger.debug("Rendering static_results.html template")
+                    app.logger.debug("Rendering static_info.html template")
                     return render_template(
-                        'static_results.html',
+                        'static_info.html',
                         file_info=file_info,
                         analysis_results=analysis_results,
                         yara_detections=yara_detections,
@@ -426,9 +426,9 @@ def register_routes(app):
                     detections = utils.extract_detection_counts(analysis_results)
                     app.logger.debug(f"Extracted dynamic analysis detections: {detections}")
                     
-                    app.logger.debug("Rendering dynamic_results.html template")
+                    app.logger.debug("Rendering dynamic_info.html template")
                     return render_template(
-                        'dynamic_results.html',
+                        'dynamic_info.html',
                         file_info=file_info,
                         analysis_results=analysis_results,
                         yara_detections=detections['yara'],
@@ -518,22 +518,21 @@ def register_routes(app):
                                 },
                                 'analysis_summary': {
                                     'yara': {
-                                        'match_count': len(yara_matches),
-                                        'critical_rules': sum(1 for match in yara_matches if match.get('metadata', {}).get('severity', 0) >= 90)
+                                        'total_findings': len(yara_matches),
+                                        'findings': yara_matches  # Store complete YARA findings
                                     },
                                     'pe_sieve': {
-                                        'total_suspicious': pe_sieve_findings.get('total_suspicious', 0),
-                                        'implanted': pe_sieve_findings.get('implanted', 0),
-                                        'hooked': pe_sieve_findings.get('hooked', 0)
+                                        'total_findings': pe_sieve_findings.get('total_suspicious', 0),
+                                        'findings': pe_sieve_findings  # Store complete PE-sieve findings
                                     },
                                     'moneta': {
-                                        'abnormal_exec': moneta_findings.get('total_abnormal_private_exec', 0),
-                                        'unsigned_modules': moneta_findings.get('total_unsigned_modules', 0),
-                                        'rwx_regions': moneta_findings.get('total_private_rwx', 0)
+                                        'total_findings': sum(1 for key, value in moneta_findings.items() 
+                                                            if key.startswith('total_') and isinstance(value, (int, float)) and value > 0),
+                                        'findings': moneta_findings  # Store complete Moneta findings
                                     },
                                     'hsb': {
                                         'total_findings': sum(len(det.get('findings', [])) for det in hsb_detections if det.get('pid') == int(pid)),
-                                        'max_severity': max((det.get('max_severity', 0) for det in hsb_detections if det.get('pid') == int(pid)), default=0)
+                                        'findings': [det for det in hsb_detections if det.get('pid') == int(pid)]  # Store complete HSB findings for this PID
                                     }
                                 }
                             }
@@ -625,7 +624,6 @@ def register_routes(app):
                 'status': 'error',
                 'error': str(e)
             }), 500
-
 
     @app.route('/cleanup', methods=['POST'])
     def cleanup():

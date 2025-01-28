@@ -770,45 +770,52 @@ class Utils:
             'patriot': 0,
             'hsb': 0
         }
-
         try:
+            # YARA - Get total matches
             yara_matches = results.get('yara', {}).get('matches', [])
-            counts['yara'] = len({match.get('rule') for match in yara_matches if match.get('rule')}) if isinstance(yara_matches, list) else 0
+            counts['yara'] = len(yara_matches) if isinstance(yara_matches, list) else 0
         except (TypeError, ValueError):
             pass
 
         try:
+            # PE-sieve - Count all findings
             pesieve_findings = results.get('pe_sieve', {}).get('findings', {})
-            counts['pesieve'] = int(pesieve_findings.get('total_suspicious', 0) or 0)
+            total_findings = sum(
+                value for key, value in pesieve_findings.items()
+                if isinstance(value, (int, float)) and key != 'total_scanned'
+            )
+            counts['pesieve'] = total_findings
         except (TypeError, ValueError):
             pass
 
         try:
+            # Moneta - Count all findings
             moneta_findings = results.get('moneta', {}).get('findings', {})
-            counts['moneta'] = sum([
-                int(moneta_findings.get('total_private_rwx', 0) or 0),
-                int(moneta_findings.get('total_private_rx', 0) or 0),
-                int(moneta_findings.get('total_modified_code', 0) or 0),
-                int(moneta_findings.get('total_heap_executable', 0) or 0),
-                int(moneta_findings.get('total_modified_pe_header', 0) or 0),
-                int(moneta_findings.get('total_inconsistent_x', 0) or 0),
-                int(moneta_findings.get('total_missing_peb', 0) or 0),
-                int(moneta_findings.get('total_mismatching_peb', 0) or 0)
-            ])
+            total_findings = sum(
+                value for key, value in moneta_findings.items()
+                if isinstance(value, (int, float)) and key.startswith('total_') and key != 'total_regions'
+            )
+            counts['moneta'] = total_findings
         except (TypeError, ValueError):
             pass
 
         try:
+            # Patriot - Get all findings
             patriot_findings = results.get('patriot', {}).get('findings', {}).get('findings', [])
             counts['patriot'] = len(patriot_findings) if isinstance(patriot_findings, list) else 0
         except (TypeError, ValueError):
             pass
 
         try:
-            hsb_findings = results.get('hsb', {}).get('findings', {})
-            if hsb_findings and hsb_findings.get('detections'):
-                counts['hsb'] = len(hsb_findings['detections'][0].get('findings', []))
-        except (TypeError, ValueError, IndexError):
+            # HSB - Get all findings from all detections
+            hsb_findings = results.get('hsb', {}).get('findings', {}).get('detections', [])
+            total_findings = sum(
+                len(detection.get('findings', [])) 
+                for detection in hsb_findings 
+                if isinstance(detection, dict)
+            )
+            counts['hsb'] = total_findings
+        except (TypeError, ValueError):
             pass
 
         return counts

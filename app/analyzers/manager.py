@@ -291,9 +291,6 @@ class AnalysisManager:
                             }
 
                         # Cleanup after capturing output
-                        
-
-
                     
                     # 6. Get RedEdr results if it was started
                     if rededr:

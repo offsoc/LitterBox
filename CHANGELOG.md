@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Resolved missing IOC issue in Moneta.
-
+- Multiple bug fixes in summary section
 
 ## [v1.6.0] - 2025-01-26
 ### Added
