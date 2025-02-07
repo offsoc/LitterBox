@@ -13,6 +13,10 @@ The platform provides automated analysis through an intuitive web interface, mon
 
 This ensures your payloads work as intended before execution in target environments.
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-green.svg)]()
+[![GitHub Stars](https://img.shields.io/github/stars/BlackSnufkin/LitterBox)](https://github.com/BlackSnufkin/LitterBox/stargazers)
+
 ## Features
 
 ### Initial Analysis
@@ -59,6 +63,12 @@ Features include:
 - Sleep pattern monitoring
 - Collect Windows telemetry via ETW
 
+### Blender Analysis
+- Scans running system processes to collect behavioral artifacts
+- Compares payload execution IOCs against system processes
+- Identifies processes with overlapping IOCs for payload hosting
+- Provides ranked process matches based on detected similarities
+
 ## Integrated Tools
 
 ### Static Analysis Suite
@@ -73,9 +83,10 @@ Features include:
 - [Patriot](https://github.com/BlackSnufkin/patriot) - Detecting various kinds of in-memory stealth techniques
 - [RedEdr](https://github.com/dobin/RedEdr) - Collect Windows telemetry via ETW providers
 - [Hunt-Sleeping-Beacons](https://github.com/thefLink/Hunt-Sleeping-Beacons) - Beacon behavior analysis
+- [Hollows-Hunter](https://github.com/hasherezade/hollows_hunter) - Recognizes variety of potentially malicious implants (replaced/implanted PEs, shellcodes, hooks, in-memory patches).
+
 
 ## Web Endpoint Reference
-
 
 #### File Management
 ```http
@@ -87,6 +98,12 @@ GET    /files                     # Get list of processed files
 GET    /analyze/static/<hash>     # Static file analysis
 POST   /analyze/dynamic/<hash>    # Dynamic file analysis  
 POST   /analyze/dynamic/<pid>     # Process analysis
+```
+#### Blender Analyzer
+```http
+GET    /blender                  # Retrieve latest scan results
+GET    /blender?hash=<hash>      # Compare processes with payload
+POST   /blender                  # Trigger system scan with {"operation": "scan"}
 ```
 #### API Results (JSON)
 ```http

@@ -1837,7 +1837,8 @@ const tools = {
                                   (findings.total_modified_code || 0) + 
                                   (findings.total_heap_executable || 0) + 
                                   (findings.total_modified_pe_header || 0) + 
-                                  (findings.total_inconsistent_x || 0) + 
+                                  (findings.total_inconsistent_x || 0) +
+                                  (findings.total_threads_non_image ||0) +
                                   (findings.total_missing_peb || 0) + 
                                   (findings.total_mismatching_peb || 0);
                                   

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.0.0] - 2025-02-08
+### Added
+- New BlenderAnalyzer implementation with Moneta, HSB, and HollowsHunter integration
+- Blender endpoint for system scanning and payload comparison
+- New Dynamic Analyzer HollowsHunter
+
+### Fixed
+- Scanners output parsing improvements
+
+
 ## [v1.6.1] - 2025-01-27
 ### Added
 - Captured and displayed payload output for better analysis.

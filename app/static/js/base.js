@@ -201,6 +201,11 @@ function showSummary() {
     window.location.href = '/summary';
 }
 
+// Show Blender
+function openBlender() {
+    window.location.href = '/blender';
+}
+
 // Notification System
 const NotificationSystem = {
     show(message, className, duration = CONFIG.notificationDuration) {

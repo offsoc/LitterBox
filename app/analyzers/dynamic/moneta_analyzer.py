@@ -23,11 +23,15 @@ class MonetaAnalyzer(DynamicAnalyzer):
                 universal_newlines=True
             )
             
-            stdout, stderr = process.communicate(timeout=tool_config['timeout'])
+            stdout, stderr = process.communicate()
+            
+            # Consider successful if we got output, regardless of return code
+            findings = self._parse_output(stdout)
+            has_results = bool(stdout and findings.get('raw_output'))
             
             self.results = {
-                'status': 'completed' if process.returncode == 0 else 'failed',
-                'findings': self._parse_output(stdout),
+                'status': 'completed' if has_results else 'failed',  # Changed condition
+                'findings': findings,
                 'errors': stderr if stderr else None
             }
             

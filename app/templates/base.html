@@ -53,14 +53,22 @@
                     </svg>
                     <span class="font-medium">Analyze Process</span>
                 </button>
-                
-                <!-- Rest of the navigation -->
                 <!-- Summary Button -->
                 <button onclick="showSummary()" class="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-red-600/20 transition-colors group">
                     <svg class="w-5 h-5 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <span class="font-medium">Results Summary</span>
+                </button>
+                <!-- Blender Button -->
+                <button onclick="openBlender()" class="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-red-600/20 transition-colors group">
+                    <svg class="w-5 h-5 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                            d="M9 18h6m-6-1h6m-3-3V21M12 3c3.866 0 7 3.134 7 7 0 2.577-1.454 4.82-3.585 5.947A2 2 0 0114 17.682V18H10v-.318a2 2 0 01-1.415-1.735C6.454 14.82 5 12.577 5 10c0-3.866 3.134-7 7-7z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                            d="M12 1v2m7 7h2M3 10h2m1.879-5.121l1.414 1.414m10.242 0l1.414-1.414"/>
+                    </svg>
+                    <span class="font-medium">Blender Analyzer</span>
                 </button>
                 <!-- Cleanup Button -->
                 <button onclick="cleanupSystem()" class="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-red-600/20 transition-colors group">
@@ -181,6 +189,6 @@
     </div>
 
     {% block scripts %}{% endblock %}
-    <script src="{{ url_for('static', filename='js/status.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/base.js') }}"></script>
 </body>
 </html>

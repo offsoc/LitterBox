@@ -337,6 +337,7 @@ class AnalysisManager:
                 
         self.logger.debug(f"Dynamic analysis completed in {time.time() - start_time:.2f} seconds")
         return results
+    
     def _validate_process(self, target, is_pid: bool, cmd_args: list = None) -> tuple:
         """
         Validate and prepare process for dynamic analysis.

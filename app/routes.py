@@ -5,9 +5,11 @@ import glob
 import json
 import os
 import shutil
+from datetime import datetime
 from flask import render_template, request, jsonify
 from .utils import Utils
 from .analyzers.manager import AnalysisManager
+from .analyzers.blender import BlenderAnalyzer
 
 
 def register_routes(app):
@@ -447,6 +449,7 @@ def register_routes(app):
             app.logger.error("Traceback:", exc_info=True)  # This will log the full traceback
             return render_template('error.html', error=str(e)), 500
 
+
     @app.route('/summary', methods=['GET'])
     def summary_page():
         """Route for the summary page"""
@@ -625,6 +628,68 @@ def register_routes(app):
             }), 500
 
 
+    @app.route('/blender', methods=['GET', 'POST'])
+    def blender():
+        app.logger.debug("Accessed blender endpoint")
+
+        try:
+            blender_analyzer = BlenderAnalyzer(app.config, logger=app.logger)
+
+            if request.method == 'GET':
+                # Check if the request is for comparison
+                payload_hash = request.args.get('hash')
+                if payload_hash:
+                    comparison_result = blender_analyzer.compare_payload(payload_hash)
+
+                    # Check if status is "error" and force 400 response
+                    if isinstance(comparison_result, dict) and comparison_result.get("status") == "error":
+                        return jsonify({'error': comparison_result.get("message", "Unknown error")}), 400
+
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'Comparison completed',
+                        'result': comparison_result
+                    })
+
+                # Otherwise, return the latest report
+                result_folder = os.path.join(app.config['utils']['result_folder'], "Blender")
+                latest_report = None
+                last_modified = None
+
+                if os.path.exists(result_folder):
+                    files = [f for f in os.listdir(result_folder) if f.startswith("Blender_results_")]
+                    if files:
+                        latest_file = max(files, key=lambda x: os.path.getmtime(os.path.join(result_folder, x)))
+                        file_path = os.path.join(result_folder, latest_file)
+                        with open(file_path, 'r') as f:
+                            latest_report = f.read()
+                        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+
+                return render_template('blender.html',
+                                       initial_data=latest_report,
+                                       last_modified=last_modified)
+
+            operation = request.json.get('operation')
+            app.logger.debug(f"POST request received. Operation: {operation}")
+
+            if operation == 'scan':
+                parsed_processes = blender_analyzer.take_system_sample()
+
+                return jsonify({
+                    'status': 'success',
+                    'message': 'System scan completed',
+                    'processes': parsed_processes
+                })
+
+            else:
+                app.logger.debug(f"Invalid operation requested: {operation}")
+                return jsonify({'error': 'Invalid operation'}), 400
+
+        except Exception as e:
+            app.logger.error(f"Error in blender operation: {e}")
+            return jsonify({'error': str(e)}), 500
+
+
     @app.route('/cleanup', methods=['POST'])
     def cleanup():
         try:
@@ -658,11 +723,16 @@ def register_routes(app):
 
             # Clean result folders
             result_folder = app.config['utils']['result_folder']
+            exclude_folder = "Blender"  # Exclude this folder
+
             if os.path.exists(result_folder):
                 app.logger.debug(f"Cleaning result folders: {result_folder}")
                 try:
                     folders = os.listdir(result_folder)
                     for folder in folders:
+                        if folder == exclude_folder:  # Skip Blender folder
+                            continue
+
                         folder_path = os.path.join(result_folder, folder)
                         try:
                             if os.path.isdir(folder_path):
@@ -676,23 +746,29 @@ def register_routes(app):
                     app.logger.error(f"Error accessing result folder: {e}")
                     results['errors'].append(f"Error accessing result folder: {str(e)}")
 
+
             # Clean analysis folders
-            analysis_path = os.path.join('.', 'Scanners', 'PE-Sieve', 'Analysis')
-            if os.path.exists(analysis_path):
-                app.logger.debug(f"Cleaning analysis folders: {analysis_path}")
-                try:
-                    process_folders = glob.glob(os.path.join(analysis_path, 'process_*'))
-                    for folder in process_folders:
-                        try:
-                            shutil.rmtree(folder)
-                            results['analysis_cleaned'] += 1
-                            app.logger.debug(f"Deleted analysis folder: {folder}")
-                        except Exception as e:
-                            app.logger.error(f"Error deleting analysis folder {folder}: {e}")
-                            results['errors'].append(f"Error deleting {folder}: {str(e)}")
-                except Exception as e:
-                    app.logger.error(f"Error accessing analysis folder: {e}")
-                    results['errors'].append(f"Error accessing analysis folder: {str(e)}")
+            analysis_paths = [
+                os.path.join('.', 'Scanners', 'PE-Sieve', 'Analysis'),
+                os.path.join('.', 'Scanners', 'HollowsHunter', 'Analysis')
+            ]
+
+            for analysis_path in analysis_paths:
+                if os.path.exists(analysis_path):
+                    app.logger.debug(f"Cleaning analysis folders: {analysis_path}")
+                    try:
+                        process_folders = glob.glob(os.path.join(analysis_path, 'process_*'))
+                        for folder in process_folders:
+                            try:
+                                shutil.rmtree(folder)
+                                results['analysis_cleaned'] += 1
+                                app.logger.debug(f"Deleted analysis folder: {folder}")
+                            except Exception as e:
+                                app.logger.error(f"Error deleting analysis folder {folder}: {e}")
+                                results['errors'].append(f"Error deleting {folder}: {str(e)}")
+                    except Exception as e:
+                        app.logger.error(f"Error accessing analysis folder: {e}")
+                        results['errors'].append(f"Error accessing analysis folder: {str(e)}")
 
             # Determine status
             status = 'warning' if results['errors'] else 'success'
@@ -775,7 +851,7 @@ def register_routes(app):
             
             return jsonify({
                 'status': status,
-                'timestamp': datetime.datetime.now().isoformat(),
+                'timestamp': datetime.now().isoformat(),
                 'upload_folder_accessible': os.path.isdir(upload_folder) if upload_folder else False,
                 'issues': issues,
                 'configuration': {
@@ -788,7 +864,7 @@ def register_routes(app):
             app.logger.error(f"Unexpected error during health check: {e}")
             return jsonify({
                 'status': 'error',
-                'timestamp': datetime.datetime.now().isoformat(),
+                'timestamp': datetime.now().isoformat(),
                 'issues': [str(e)]
             }), 500
 
