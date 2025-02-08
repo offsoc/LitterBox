@@ -1,4 +1,5 @@
 # LitterBox
+
 ![single grumpy cat](https://github.com/user-attachments/assets/20030454-55b8-4473-b7b7-f65bb7150d51)
 
 Your malware's favorite sandbox - where red teamers come to bury their payloads.
