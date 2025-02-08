@@ -107,10 +107,10 @@ POST   /blender                  # Trigger system scan with {"operation": "scan"
 ```
 #### API Results (JSON)
 ```http
-GET    /api/results/<hash>/info   # Get Json file info
-GET    /api/results/<hash>/static # Get Json results for file static analysis
-GET    /api/results/<hash>/dynamic # Get Json results for file dynamic analysis
-GET    /api/results/<pid>/dynamic # Get Json results for pid analysis
+GET    /api/results/<hash>/info      # Get Json file info
+GET    /api/results/<hash>/static    # Get Json results for file static analysis
+GET    /api/results/<hash>/dynamic   # Get Json results for file dynamic analysis
+GET    /api/results/<pid>/dynamic    # Get Json results for pid analysis
 ```
 #### Web Results
 ```http
