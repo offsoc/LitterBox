@@ -14,7 +14,7 @@ The platform provides automated analysis through an intuitive web interface, mon
 This ensures your payloads work as intended before execution in target environments.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
-[![License](https://img.shields.io/badge/license-MIT-green.svg)]()
+[![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
 [![GitHub Stars](https://img.shields.io/github/stars/BlackSnufkin/LitterBox)](https://github.com/BlackSnufkin/LitterBox/stargazers)
 
 ## Features
