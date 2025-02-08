@@ -64,7 +64,7 @@ Features include:
 - Collect Windows telemetry via ETW
 
 ### Blender Analysis
-- Scans running system processes to collect behavioral artifacts
+- Scans running system processes to collect IOCs
 - Compares payload execution IOCs against system processes
 - Identifies processes with overlapping IOCs for payload hosting
 - Provides ranked process matches based on detected similarities
