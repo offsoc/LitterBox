@@ -65,7 +65,7 @@ Features include:
 - Collect Windows telemetry via ETW
 
 ### Doppelganger Analysis
-Doppelganger helps you analyze code in two ways:
+Doppelganger helps you analyze payload in two ways:
 
 #### Blender
 Looks at what's running on your system by:
