@@ -21,7 +21,8 @@ def register_routes(app):
 
     @app.route('/')
     def index():
-        return render_template('upload.html')
+        config = load_config()  # Use your existing load_config function
+        return render_template('upload.html', config=config)
 
 
     @app.route('/upload', methods=['POST'])
