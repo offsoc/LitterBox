@@ -121,7 +121,7 @@ POST   /doppelganger                            # Trigger system scan with {"typ
 #FuzzyHash Analyer
 GET    /doppelganger?type=fuzzy                 # Get current fuzzy analysis stats
 GET    /doppelganger?type=fuzzy&hash=<hash>     # Analyze file with fuzzy hashing
-POST   /doppelganger                            # Create database with {"type": "fuzzy", "operation": "create_db", "folder_path": "/path/to/folder"s}
+POST   /doppelganger                            # Create database with {"type": "fuzzy", "operation": "create_db", "folder_path": "C:\path\to\folder"}
 ```
 #### API Results (JSON)
 ```http
