@@ -2,80 +2,110 @@
 
 class BlenderAnalyzer {
     constructor() {
+        // Only initialize if we're in blender mode
+        if (window.analysisType !== 'blender') return;
+        
         this.bindElements();
         this.bindEvents();
         this.initialize();
     }
 
     bindElements() {
+        // Updated element IDs to match new template
         this.scanButton = document.getElementById('startScan');
-        this.resultsDiv = document.getElementById('scanResults');
-        this.resultsTitle = document.getElementById('resultsTitle');
+        this.resultsDiv = document.getElementById('blenderScanResults');
+        this.resultsTitle = document.getElementById('blenderResultsTitle');
         this.scanActions = document.getElementById('scanActions');
         this.lastScanElement = document.getElementById('blenderLastScanTime');
+        this.blenderContent = document.getElementById('blenderContent');
     }
 
     bindEvents() {
+        if (!this.blenderContent) return; // Exit if not in blender view
+        
         this.scanButton?.addEventListener('click', () => this.startSystemScan());
+        
+        // Set initial view on DOM content loaded
         document.addEventListener('DOMContentLoaded', () => {
-            const currentView = document.querySelector('.nav-tab.active')?.id.replace('View', '');
-            if (currentView === 'compare') {
-                this.loadPayloadsForComparison();
-            } else if (window.initialScanData) {
+            // Force scan view to be active by default
+            this.switchView('scan');
+            
+            // Initialize view based on scan data
+            if (window.initialScanData) {
                 this.updateResults({ processes: window.initialScanData });
             }
         });
     }
 
     initialize() {
-        if (!window.initialScanData && !window.lastScanDate) {
-            this.showError('No system scan found. Please run a system scan.');
-        } else {
-            if (window.initialScanData) {
-                this.updateResults({ processes: window.initialScanData });
-            }
-            if (window.lastScanDate) {
-                this.updateLastScanTime(window.lastScanDate);
-            }
+        if (!this.blenderContent) return; // Exit if not in blender view
+        
+        // Make scan view active by default
+        this.switchView('scan');
+        
+        // Handle initial scan data
+        if (!window.initialScanData) {
+            this.showError('No system scan data available. Please run a system scan.');
+            return;
+        }
+
+        // Update results with initial scan data
+        this.updateResults({ processes: window.initialScanData });
+        
+        // Update last scan time if available
+        if (window.lastScanDate) {
+            this.updateLastScanTime(window.lastScanDate);
         }
     }
 
     switchView(view) {
+        if (!this.blenderContent) return; // Exit if not in blender view
+        
+        // Update tab classes
         document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.classList.remove('text-red-400', 'border-red-400');
+            tab.classList.remove('text-red-400', 'border-red-400', 'active');
             tab.classList.add('text-gray-400', 'border-transparent');
         });
 
-        document.getElementById(`${view}View`).classList.add('text-red-400', 'border-red-400');
+        // Set active tab
+        const activeTab = document.getElementById(`${view}View`);
+        if (activeTab) {
+            activeTab.classList.add('text-red-400', 'border-red-400', 'active');
+            activeTab.classList.remove('text-gray-400', 'border-transparent');
+        }
 
         if (view === 'scan') {
-            this.scanActions.classList.remove('hidden');
-            this.resultsDiv.innerHTML = '';
+            this.scanActions?.classList.remove('hidden');
+            if (this.resultsDiv) this.resultsDiv.innerHTML = '';
+            if (this.resultsTitle) this.resultsTitle.textContent = 'System Scan Results';
 
-            this.resultsTitle.textContent = 'System Scan Results';
-
-            if (!window.initialScanData && !window.lastScanDate) {
-                this.showError('No system scan found. Please run a system scan.');
+            if (!window.initialScanData) {
+                this.showError('No system scan data available. Please run a system scan.');
             } else {
                 this.updateResults({ processes: window.initialScanData });
             }
         } else {
-            this.scanActions.classList.add('hidden');
-            this.resultsTitle.textContent = 'Payload Comparison';
+            this.scanActions?.classList.add('hidden');
+            if (this.resultsTitle) this.resultsTitle.textContent = 'Payload Comparison';
             this.loadPayloadsForComparison();
         }
     }
 
     async startSystemScan() {
+        if (!this.blenderContent || !this.scanButton) return;
+        
         this.scanButton.disabled = true;
         this.scanButton.classList.add('opacity-50');
         this.showLoading('Creating new system scan...');
 
         try {
-            const response = await fetch('/blender', {
+            const response = await fetch('/doppelganger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ operation: 'scan' })
+                body: JSON.stringify({ 
+                    type: 'blender',
+                    operation: 'scan' 
+                })
             });
             
             const data = await response.json();
@@ -92,17 +122,36 @@ class BlenderAnalyzer {
             console.error('Error:', error);
             this.showError('Failed to start system scan');
         } finally {
-            this.scanButton.disabled = false;
-            this.scanButton.classList.remove('opacity-50');
+            if (this.scanButton) {
+                this.scanButton.disabled = false;
+                this.scanButton.classList.remove('opacity-50');
+            }
         }
     }
 
+    // Fix for the updateResults method
     updateResults(data) {
+        if (!this.resultsDiv) return;
+
+        // Check if data exists
+        if (!data) {
+            this.showError('No data received from the system scan');
+            return;
+        }
+
+        // Parse processes if they're in string format
         const processes = typeof data.processes === 'string' 
             ? JSON.parse(data.processes) 
             : data.processes;
 
-        if (!processes || processes.length === 0) {
+        // Check if processes exist and are valid
+        if (!processes) {
+            this.showError('No system scan data available. Please run a system scan.');
+            return;
+        }
+
+        // Check if processes array is empty
+        if (processes.length === 0) {
             this.resultsDiv.innerHTML = `
                 <div class="text-center text-gray-400">
                     <p>No issues detected in system scan</p>
@@ -111,6 +160,7 @@ class BlenderAnalyzer {
             return;
         }
 
+        // Sort and display valid process results
         processes.sort((a, b) => b.iocs.length - a.iocs.length);
         this.displayProcessResults(processes);
     }
@@ -306,7 +356,43 @@ class BlenderAnalyzer {
         }
     }
 
+    // New helper method to check if files object is empty
     displayPayloads(files) {
+        if (!files || Object.keys(files).length === 0) {
+            this.resultsDiv.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-12 px-4 bg-gray-800/20 rounded-lg">
+                    <div class="mb-6">
+                        <svg class="w-16 h-16 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                d="M4 5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                                d="M12 15v.01M12 12v-4"/>
+                        </svg>
+                    </div>
+                    
+                    <h3 class="text-xl font-medium text-gray-300 mb-3">
+                        No Payloads Available
+                    </h3>
+                    
+                    <div class="space-y-2 text-center max-w-md">
+                        <p class="text-gray-400">
+                            There are currently no payloads available for analysis in the system.
+                        </p>
+                        <p class="text-gray-500 text-sm">
+                            Upload payloads through the interface to begin the analysis process.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 flex gap-4">
+                        <a href="/" class="px-4 py-2 bg-pink-500/10 text-green-400 rounded-lg border border-green-500/20 hover:bg-green-500/20 transition-colors">
+                            Upload Payloads
+                        </a>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
         this.resultsDiv.innerHTML = `
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-700">
@@ -353,7 +439,7 @@ class BlenderAnalyzer {
                 <td class="px-6 py-4 whitespace-nowrap">
                     <button 
                         ${hasSystemScan ? `onclick="blenderAnalyzer.compareWithPayload('${file.md5}')"` : 'disabled'} 
-                        class="px-3 py-1 ${hasSystemScan ? 'text-pink-400 border-pink-900/20 hover:bg-pink-500/10 cursor-pointer' : 'text-gray-500 border-gray-700 opacity-50 cursor-not-allowed'} border rounded-lg transition-colors"
+                        class="px-3 py-1 ${hasSystemScan ? 'text-red-400 border-red-900/20 hover:bg-red-500/10 cursor-pointer' : 'text-gray-500 border-gray-700 opacity-50 cursor-not-allowed'} border rounded-lg transition-colors"
                         ${!hasSystemScan ? 'title="Please run a system scan first"' : ''}>
                         Compare
                     </button>
@@ -363,9 +449,11 @@ class BlenderAnalyzer {
     }
 
     async compareWithPayload(hash) {
+        if (!this.blenderContent) return;
+        
         this.showLoading('Comparing with payload...');
         try {
-            const response = await fetch(`/blender?hash=${encodeURIComponent(hash)}`, {
+            const response = await fetch(`/doppelganger?type=blender&hash=${encodeURIComponent(hash)}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -599,6 +687,8 @@ class BlenderAnalyzer {
     }
 
     showLoading(message) {
+        if (!this.resultsDiv) return;
+        
         this.resultsDiv.innerHTML = `
             <div class="flex items-center justify-center text-gray-400">
                 <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
@@ -611,6 +701,8 @@ class BlenderAnalyzer {
     }
 
     showError(message) {
+        if (!this.resultsDiv) return;
+        
         this.resultsDiv.innerHTML = `
             <div class="flex items-center justify-center text-red-400">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -652,8 +744,8 @@ class BlenderAnalyzer {
     }
 }
 
-// Initialize the analyzer
-const blenderAnalyzer = new BlenderAnalyzer();
 
 // Export for global access
-window.blenderAnalyzer = blenderAnalyzer;
+if (window.analysisType === 'blender') {
+    window.blenderAnalyzer = new BlenderAnalyzer();
+}

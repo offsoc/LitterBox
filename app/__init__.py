@@ -17,9 +17,21 @@ def create_app():
     app.config.update(config)
     app.name = config['application']['name']
 
-    # Ensure upload and temp directories exist
-    for folder in [config['utils']['upload_folder']]:
-        os.makedirs(folder, exist_ok=True)
+    # Create all necessary directories
+    paths_to_create = {
+        config['utils']['upload_folder'],
+        config['utils']['result_folder'],
+        config['analysis']['doppelganger']['db']['path'],
+        os.path.join(config['analysis']['doppelganger']['db']['path'], config['analysis']['doppelganger']['db']['blender']),
+        os.path.join(config['analysis']['doppelganger']['db']['path'], config['analysis']['doppelganger']['db']['fuzzyhash'])
+    }
+
+    # Create directories
+    for path in paths_to_create:
+        os.makedirs(path, exist_ok=True)
+
+
+
 
     # Register routes
     from app.routes import register_routes

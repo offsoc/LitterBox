@@ -18,10 +18,21 @@ utils:
   upload_folder: "Uploads"
   result_folder: "Results"
 
+
 analysis:
   process:
     init_wait_time: 5  # Time in seconds to wait for payload initialization
   
+  doppelganger:
+    db:
+      path: "DoppelgangerDB"
+      blender: "Blender"
+      fuzzyhash: "FuzzyHash"
+      fuzzy_extensions: 
+        - exe
+        - dll
+        - bin
+
   static:
     yara:
       enabled: true

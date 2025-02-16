@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.5.0] - 2025-02-16
+### Added
+- New FuzzyHash analyzer (ssdeep)
+- FuzzyHash database with open-source tools
+- Doppelganger endpoint providing a unified interface for both Blender and FuzzyHash
+- New configuration section for Doppelganger
+
+### Fixed
+- Relocated all Blender code to the Doppelganger section
+- Enhanced cleanup method
+- Improved folder structure and creation process
+- Enhanced error handelig on Blender analyzer client side
+
 ## [v2.0.0] - 2025-02-08
 ### Added
 - New BlenderAnalyzer implementation with Moneta, HSB, and HollowsHunter integration

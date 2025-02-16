@@ -19,6 +19,14 @@ class BlenderAnalyzer:
         self.logger = logger or logging.getLogger(__name__)
         self.logger.debug("Initializing BlenderAnalyzer")
         
+        # Set result folders and analysis filename
+        self.result_dir = self.config['utils']['result_folder']
+        self.analysis_filename = "dynamic_analysis_results.json"
+        self.blender_dir = os.path.join(
+            self.config['analysis']['doppelganger']['db']['path'],
+            self.config['analysis']['doppelganger']['db']['blender']
+        )
+        
         # Initialize analyzers
         self.analyzers = {
             'moneta': MonetaAnalyzer(config),
@@ -230,11 +238,9 @@ class BlenderAnalyzer:
         result_list = list(combined_processes.values())
         sanitized_json = json.dumps(result_list, indent=4, ensure_ascii=False)
 
-        result_folder = os.path.join(self.config['utils']['result_folder'], "Blender")
-        os.makedirs(result_folder, exist_ok=True)
         date_str = datetime.now().strftime("%m%d%Y")
-        file_name = f"Blender_results_{date_str}.json"
-        file_path = os.path.join(result_folder, file_name)
+        file_name = f"BlenderScan_{date_str}.json"
+        file_path = os.path.join(self.blender_dir, file_name)
 
         with open(file_path, 'w', encoding='utf-8') as out_file:
             out_file.write(sanitized_json)
@@ -400,10 +406,14 @@ class BlenderAnalyzer:
             # Get payload's analysis results
             result_dir = os.path.join(self.config['utils']['result_folder'], f"{payload_hash}_*", "dynamic_analysis_results.json")
             matching_files = glob.glob(result_dir)
-            
+
+
             if not matching_files:
                 self.logger.error(f"No analysis results found for payload: {payload_hash}")
-                return {"error": "No analysis results found for this payload"}
+                return {
+                    "status": "error",
+                    "message": "No analysis results found for this payload."
+                }
 
             # Load payload results    
             with open(matching_files[0], 'r') as f:
@@ -442,8 +452,8 @@ class BlenderAnalyzer:
 
 
             # Get the latest system scan
-            blender_dir = os.path.join(self.config['utils']['result_folder'], "Blender")
-            system_scans = [f for f in os.listdir(blender_dir) if f.startswith("Blender_results_")]
+            blender_dir = self.blender_dir
+            system_scans = [f for f in os.listdir(blender_dir) if f.startswith("BlenderScan_")]
            
             if not system_scans:
                 self.logger.error("No system scan results available")

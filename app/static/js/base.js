@@ -202,8 +202,8 @@ function showSummary() {
 }
 
 // Show Blender
-function openBlender() {
-    window.location.href = '/blender';
+function openDoppelganger() {
+    window.location.href = '/doppelganger';
 }
 
 // Notification System

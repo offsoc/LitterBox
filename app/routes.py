@@ -10,6 +10,7 @@ from flask import render_template, request, jsonify
 from .utils import Utils
 from .analyzers.manager import AnalysisManager
 from .analyzers.blender import BlenderAnalyzer
+from .analyzers.fuzzy import FuzzyHashAnalyzer
 
 
 def register_routes(app):
@@ -628,67 +629,201 @@ def register_routes(app):
             }), 500
 
 
-    @app.route('/blender', methods=['GET', 'POST'])
-    def blender():
-        app.logger.debug("Accessed blender endpoint")
+    @app.route('/doppelganger', methods=['GET', 'POST'])
+    def doppelganger():
+        """Unified endpoint for both blender and fuzzy hash analysis operations"""
+        app.logger.debug("Accessed doppelganger endpoint")
 
         try:
-            blender_analyzer = BlenderAnalyzer(app.config, logger=app.logger)
-
+            # For GET requests, get analysis type from query params
+            # For POST requests, get from JSON body
+            # Default to 'blender' if not specified
             if request.method == 'GET':
-                # Check if the request is for comparison
+                analysis_type = request.args.get('type', 'blender')
+            else:
+                # Only check JSON content type for POST requests with JSON content
+                if request.is_json:
+                    analysis_type = request.json.get('type', 'blender')
+                else:
+                    analysis_type = request.form.get('type', 'blender')
+
+            if analysis_type not in ['blender', 'fuzzy']:
+                analysis_type = 'blender'  # Default to blender if invalid type
+
+            # Initialize appropriate analyzer based on type
+            if analysis_type == 'blender':
+                analyzer = BlenderAnalyzer(app.config, logger=app.logger)
+            else:  # fuzzy
+                analyzer = FuzzyHashAnalyzer(app.config, logger=app.logger)
+
+            # Handle GET requests
+            if request.method == 'GET':
+                # Check if the request is for comparison using hash
                 payload_hash = request.args.get('hash')
                 if payload_hash:
-                    comparison_result = blender_analyzer.compare_payload(payload_hash)
+                    if analysis_type == 'blender':
+                        comparison_result = analyzer.compare_payload(payload_hash)
+                        
+                        # Check if status is "error" and force 400 response
+                        if isinstance(comparison_result, dict) and comparison_result.get("status") == "error":
+                            return jsonify({'error': comparison_result.get("message", "Unknown error")}), 400
 
-                    # Check if status is "error" and force 400 response
-                    if isinstance(comparison_result, dict) and comparison_result.get("status") == "error":
-                        return jsonify({'error': comparison_result.get("message", "Unknown error")}), 400
+                        return jsonify({
+                            'status': 'success',
+                            'message': 'Comparison completed',
+                            'result': comparison_result
+                        })
+                    else:  # fuzzy
+                        file_path = None
+                        upload_folder = os.path.abspath(app.config['utils']['upload_folder'])
+                        
+                        # Try to get file from cache first
+                        if hasattr(app, 'file_cache'):
+                            file_path = app.file_cache.get_file_by_hash(payload_hash)
+                        
+                        # If not in cache, search in upload folder
+                        if not file_path:
+                            try:
+                                for filename in os.listdir(upload_folder):
+                                    full_path = os.path.join(upload_folder, filename)
+                                    if os.path.isfile(full_path):
+                                        file_hash = analyzer._compute_md5(full_path)
+                                        if file_hash == payload_hash:
+                                            file_path = full_path
+                                            if hasattr(app, 'file_cache'):
+                                                app.file_cache.add_file(full_path, file_hash)
+                                            break
+                            except FileNotFoundError:
+                                app.logger.error(f"Upload folder not found: {upload_folder}")
+                                return jsonify({'error': 'Upload folder not found'}), 500
+                        
+                        if not file_path:
+                            return jsonify({'error': 'File not found'}), 404
+                        
+                        results = analyzer.analyze_files([file_path], threshold=1)
+                        return jsonify({
+                            'status': 'success',
+                            'message': 'Analysis completed successfully',
+                            'results': results
+                        })
 
-                    return jsonify({
-                        'status': 'success',
-                        'message': 'Comparison completed',
-                        'result': comparison_result
-                    })
+                # Handle initial page load
+                if analysis_type == 'blender':
+                    result_folder = os.path.join(
+                        app.config['analysis']['doppelganger']['db']['path'],
+                        app.config['analysis']['doppelganger']['db']['blender']
+                    )
+                    latest_report = None
+                    last_modified = None
 
-                # Otherwise, return the latest report
-                result_folder = os.path.join(app.config['utils']['result_folder'], "Blender")
-                latest_report = None
-                last_modified = None
+                    if os.path.exists(result_folder):
+                        files = [f for f in os.listdir(result_folder) if f.startswith("BlenderScan_")]
+                        if files:
+                            latest_file = max(files, key=lambda x: os.path.getmtime(os.path.join(result_folder, x)))
+                            file_path = os.path.join(result_folder, latest_file)
+                            with open(file_path, 'r') as f:
+                                latest_report = f.read()
+                            last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
 
-                if os.path.exists(result_folder):
-                    files = [f for f in os.listdir(result_folder) if f.startswith("Blender_results_")]
-                    if files:
-                        latest_file = max(files, key=lambda x: os.path.getmtime(os.path.join(result_folder, x)))
-                        file_path = os.path.join(result_folder, latest_file)
-                        with open(file_path, 'r') as f:
-                            latest_report = f.read()
-                        last_modified = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')
+                    template_data = {
+                        'analysis_type': 'blender',
+                        'initial_data': latest_report,
+                        'last_modified': last_modified
+                    }
+                else:  # fuzzy
+                    db_stats = analyzer.get_db_stats()
+                    template_data = {
+                        'analysis_type': 'fuzzy',
+                        'db_stats': db_stats
+                    }
+                
+                return render_template('doppelganger.html', **template_data)
 
-                return render_template('blender.html',
-                                       initial_data=latest_report,
-                                       last_modified=last_modified)
+            # Handle POST requests
+            if not request.is_json:
+                return jsonify({'error': 'Content-Type must be application/json'}), 415
 
-            operation = request.json.get('operation')
+            data = request.json
+            operation = data.get('operation')
+            
+            if not operation:
+                app.logger.error("Missing operation in request")
+                return jsonify({'error': 'Operation type is required'}), 400
+
             app.logger.debug(f"POST request received. Operation: {operation}")
 
-            if operation == 'scan':
-                parsed_processes = blender_analyzer.take_system_sample()
-
-                return jsonify({
-                    'status': 'success',
-                    'message': 'System scan completed',
-                    'processes': parsed_processes
-                })
-
-            else:
-                app.logger.debug(f"Invalid operation requested: {operation}")
-                return jsonify({'error': 'Invalid operation'}), 400
+            if analysis_type == 'blender':
+                if operation == 'scan':
+                    parsed_processes = analyzer.take_system_sample()
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'System scan completed',
+                        'processes': parsed_processes
+                    })
+                else:
+                    return jsonify({'error': 'Invalid operation for blender analysis'}), 400
+            else:  # fuzzy
+                if operation == 'create_db':
+                    if 'folder_path' not in data:
+                        return jsonify({'error': 'Folder path is required'}), 400
+                        
+                    folder_path = data['folder_path']
+                    extensions = data.get('extensions', None)
+                    
+                    if extensions and isinstance(extensions, str):
+                        extensions = [ext.strip() for ext in extensions.split(',')]
+                    
+                    stats = analyzer.create_db_from_folder(folder_path, extensions)
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'Database created successfully',
+                        'stats': stats
+                    })
+                elif operation == 'analyze':
+                    if 'hash' not in data:
+                        return jsonify({'error': 'File hash is required'}), 400
+                        
+                    file_hash = data['hash']
+                    file_path = None
+                    upload_folder = os.path.abspath(app.config['utils']['upload_folder'])
+                    
+                    # Try to get file from cache first
+                    if hasattr(app, 'file_cache'):
+                        file_path = app.file_cache.get_file_by_hash(file_hash)
+                    
+                    # If not in cache, search in upload folder
+                    if not file_path:
+                        try:
+                            for filename in os.listdir(upload_folder):
+                                full_path = os.path.join(upload_folder, filename)
+                                if os.path.isfile(full_path):
+                                    current_hash = analyzer._compute_md5(full_path)
+                                    if current_hash == file_hash:
+                                        file_path = full_path
+                                        if hasattr(app, 'file_cache'):
+                                            app.file_cache.add_file(full_path, current_hash)
+                                        break
+                        except FileNotFoundError:
+                            app.logger.error(f"Upload folder not found: {upload_folder}")
+                            return jsonify({'error': 'Upload folder not found'}), 500
+                    
+                    if not file_path:
+                        return jsonify({'error': 'File not found'}), 404
+                        
+                    threshold = data.get('threshold', 1)
+                    results = analyzer.analyze_files([file_path], threshold)
+                    
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'Analysis completed successfully',
+                        'results': results
+                    })
+                else:
+                    return jsonify({'error': 'Invalid operation for fuzzy analysis'}), 400
 
         except Exception as e:
-            app.logger.error(f"Error in blender operation: {e}")
+            app.logger.error(f"Error in doppelganger operation: {e}")
             return jsonify({'error': str(e)}), 500
-
 
     @app.route('/cleanup', methods=['POST'])
     def cleanup():
@@ -721,18 +856,40 @@ def register_routes(app):
                     app.logger.error(f"Error accessing uploads folder: {e}")
                     results['errors'].append(f"Error accessing uploads folder: {str(e)}")
 
+            # Clean doppelganger DB folders contents
+            doppelganger_base = app.config['analysis']['doppelganger']['db']['path']
+            doppelganger_folders = [
+                app.config['analysis']['doppelganger']['db']['blender'],
+                app.config['analysis']['doppelganger']['db']['fuzzyhash']
+            ]
+
+            for folder_name in doppelganger_folders:
+                folder_path = os.path.join(doppelganger_base, folder_name)
+                if os.path.exists(folder_path):
+                    app.logger.debug(f"Cleaning doppelganger folder contents: {folder_path}")
+                    try:
+                        files = os.listdir(folder_path)
+                        for f in files:
+                            file_path = os.path.join(folder_path, f)
+                            try:
+                                if os.path.isfile(file_path):
+                                    os.unlink(file_path)
+                                    results['result_cleaned'] += 1
+                                    app.logger.debug(f"Deleted file: {file_path}")
+                            except Exception as e:
+                                app.logger.error(f"Error deleting file {file_path}: {e}")
+                                results['errors'].append(f"Error deleting {f}: {str(e)}")
+                    except Exception as e:
+                        app.logger.error(f"Error accessing folder {folder_path}: {e}")
+                        results['errors'].append(f"Error accessing {folder_name}: {str(e)}")
+
             # Clean result folders
             result_folder = app.config['utils']['result_folder']
-            exclude_folder = "Blender"  # Exclude this folder
-
             if os.path.exists(result_folder):
                 app.logger.debug(f"Cleaning result folders: {result_folder}")
                 try:
                     folders = os.listdir(result_folder)
                     for folder in folders:
-                        if folder == exclude_folder:  # Skip Blender folder
-                            continue
-
                         folder_path = os.path.join(result_folder, folder)
                         try:
                             if os.path.isdir(folder_path):
@@ -746,29 +903,23 @@ def register_routes(app):
                     app.logger.error(f"Error accessing result folder: {e}")
                     results['errors'].append(f"Error accessing result folder: {str(e)}")
 
-
-            # Clean analysis folders
-            analysis_paths = [
-                os.path.join('.', 'Scanners', 'PE-Sieve', 'Analysis'),
-                os.path.join('.', 'Scanners', 'HollowsHunter', 'Analysis')
-            ]
-
-            for analysis_path in analysis_paths:
-                if os.path.exists(analysis_path):
-                    app.logger.debug(f"Cleaning analysis folders: {analysis_path}")
-                    try:
-                        process_folders = glob.glob(os.path.join(analysis_path, 'process_*'))
-                        for folder in process_folders:
-                            try:
-                                shutil.rmtree(folder)
-                                results['analysis_cleaned'] += 1
-                                app.logger.debug(f"Deleted analysis folder: {folder}")
-                            except Exception as e:
-                                app.logger.error(f"Error deleting analysis folder {folder}: {e}")
-                                results['errors'].append(f"Error deleting {folder}: {str(e)}")
-                    except Exception as e:
-                        app.logger.error(f"Error accessing analysis folder: {e}")
-                        results['errors'].append(f"Error accessing analysis folder: {str(e)}")
+            # Clean analysis folder
+            analysis_path = os.path.join('.', 'Scanners', 'PE-Sieve', 'Analysis')
+            if os.path.exists(analysis_path):
+                app.logger.debug(f"Cleaning analysis folder: {analysis_path}")
+                try:
+                    process_folders = glob.glob(os.path.join(analysis_path, 'process_*'))
+                    for folder in process_folders:
+                        try:
+                            shutil.rmtree(folder)
+                            results['analysis_cleaned'] += 1
+                            app.logger.debug(f"Deleted analysis folder: {folder}")
+                        except Exception as e:
+                            app.logger.error(f"Error deleting analysis folder {folder}: {e}")
+                            results['errors'].append(f"Error deleting {folder}: {str(e)}")
+                except Exception as e:
+                    app.logger.error(f"Error accessing analysis folder: {e}")
+                    results['errors'].append(f"Error accessing analysis folder: {str(e)}")
 
             # Determine status
             status = 'warning' if results['errors'] else 'success'

@@ -64,11 +64,21 @@ Features include:
 - Sleep pattern monitoring
 - Collect Windows telemetry via ETW
 
-### Blender Analysis
-- Scans running system processes to collect IOCs
-- Compares payload execution IOCs against system processes
-- Identifies processes with overlapping IOCs for payload hosting
-- Provides ranked process matches based on detected similarities
+### Doppelganger Analysis
+Doppelganger helps you analyze code in two ways:
+
+#### Blender
+Looks at what's running on your system by:
+- Scanning active processes to collect IOCs
+- Comparing these IOCs with your payload
+- Showing you which processes are the closest matches
+
+#### FuzzyHash
+Helps you find similar code by:
+- Storing known tools in a database
+- Using ssdeep to compare your payload with open-source tools
+- Showing matches in a simple way, with both overall and specific scores
+
 
 ## Integrated Tools
 
@@ -100,11 +110,18 @@ GET    /analyze/static/<hash>     # Static file analysis
 POST   /analyze/dynamic/<hash>    # Dynamic file analysis  
 POST   /analyze/dynamic/<pid>     # Process analysis
 ```
-#### Blender Analyzer
+#### Doppelganger Analyzer
 ```http
-GET    /blender                  # Retrieve latest scan results
-GET    /blender?hash=<hash>      # Compare processes with payload
-POST   /blender                  # Trigger system scan with {"operation": "scan"}
+
+# Blender Analyzer
+GET    /doppelganger?type=blender               # Retrieve latest blender scan
+GET    /doppelganger?type=blender&hash=<hash>   # Compare processes with payload  
+POST   /doppelganger                            # Trigger system scan with {"type": "blender", "operation": "scan"}
+
+#FuzzyHash Analyer
+GET    /doppelganger?type=fuzzy                 # Get current fuzzy analysis stats
+GET    /doppelganger?type=fuzzy&hash=<hash>     # Analyze file with fuzzy hashing
+POST   /doppelganger                            # Create database with {"type": "fuzzy", "operation": "create_db", "folder_path": "/path/to/folder"s}
 ```
 #### API Results (JSON)
 ```http
@@ -191,14 +208,13 @@ This project incorporates the following open-source components and acknowledges 
 
 ## Screenshots
 
-![upload](https://github.com/user-attachments/assets/5352b200-4caf-4421-bb15-1e1fd66748f9)
+![upload](Screenshots/upload.png)
 
-![dynamic](https://github.com/user-attachments/assets/a9ad0dac-fb61-43a9-b380-ca00b1e9c97c)
+![dynamic](Screenshots/dynamic.png)
 
-![static](https://github.com/user-attachments/assets/f03b1e55-7d38-4e79-b8e9-1cc439d9bf7e)
+![static](Screenshots/static.png)
 
-![blender](https://github.com/user-attachments/assets/a939f1e2-abc0-42b0-a346-539213de9162)
+![doppelganger](Screenshots/doppelganger.png)
 
-![summary](https://github.com/user-attachments/assets/b547cc5a-d1aa-482a-8e43-2d6b9523bdfd)
-
+![summary](Screenshots/summary.png)
 
