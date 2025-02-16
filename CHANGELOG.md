@@ -8,12 +8,14 @@ All notable changes to this project will be documented in this file.
 - FuzzyHash database with open-source tools
 - Doppelganger endpoint providing a unified interface for both Blender and FuzzyHash
 - New configuration section for Doppelganger
+- Application version
 
 ### Fixed
 - Relocated all Blender code to the Doppelganger section
 - Enhanced cleanup method
 - Improved folder structure and creation process
 - Enhanced error handelig on Blender analyzer client side
+- base.html template disaply app version
 
 ## [v2.0.0] - 2025-02-08
 ### Added
