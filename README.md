@@ -16,7 +16,9 @@ This ensures your payloads work as intended before execution in target environme
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
+[![OS](https://img.shields.io/badge/os-Windows-blue.svg)]()
 [![GitHub Stars](https://img.shields.io/github/stars/BlackSnufkin/LitterBox)](https://github.com/BlackSnufkin/LitterBox/stargazers)
+
 
 ## Features
 
@@ -147,9 +149,9 @@ DELETE /file/<hash>          # Delete single analysis
 ## Installation
 
 ### Prerequisites
+- Windows OS only (Linux is not supported)
 - Python 3.11 or higher
-- Administrator privileges (required for certain features)
-- Windows operating system (required for specific analyzers)
+- Administrator privileges
 
 ### Setup Steps
 
@@ -161,6 +163,8 @@ cd LitterBox
 
 2. Install required dependencies:
 ```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 

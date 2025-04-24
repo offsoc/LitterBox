@@ -2,7 +2,7 @@
 
 // Upload configurations
 const UPLOAD_CONFIG = {
-    maxFileSize: 16 * 1024 * 1024, // 16MB
+    maxFileSize: 100 * 1024 * 1024, // 16MB
     toastDuration: 3000,
     transitionDelay: 300,
     fadeDelay: 50
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (file.size > UPLOAD_CONFIG.maxFileSize) {
-            showToast('File size exceeds 16MB limit', 'error');
+            showToast('File size exceeds 100MB limit', 'error');
             return;
         }
 

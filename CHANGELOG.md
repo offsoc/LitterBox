@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.5.1] - 2025-04-24
+### Fixed
+- Cleanup method bug fixed FuzzyDB delete
+- README Update
+- Bug Fixed: size limit
+
+### Changed
+- Yara Analyzer support YARA Forge format
+
+### Added
+- YARA Forge Extended set
+
+
+
 ## [v2.5.0] - 2025-02-16
 ### Added
 - New FuzzyHash analyzer (ssdeep)

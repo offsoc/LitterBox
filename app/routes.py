@@ -859,8 +859,7 @@ def register_routes(app):
             # Clean doppelganger DB folders contents
             doppelganger_base = app.config['analysis']['doppelganger']['db']['path']
             doppelganger_folders = [
-                app.config['analysis']['doppelganger']['db']['blender'],
-                app.config['analysis']['doppelganger']['db']['fuzzyhash']
+                app.config['analysis']['doppelganger']['db']['blender']
             ]
 
             for folder_name in doppelganger_folders:

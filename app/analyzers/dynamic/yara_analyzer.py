@@ -45,31 +45,42 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
                 'status': 'error',
                 'error': str(e)
             }
+
     def _parse_rule_strings(self, rule_filepath, rule_name):
         """
         Parse a YARA rule file to extract string definitions for a specific rule.
         """
         strings = {}
         try:
+            if not os.path.exists(rule_filepath):
+                return strings
+                
             with open(rule_filepath, 'r') as f:
                 lines = f.readlines()
 
             inside_rule = False
+            strings_section = False
             for line in lines:
                 stripped = line.strip()
 
-                if stripped.startswith(f"rule {rule_name}"):
+                # Match rule line with various formats
+                if re.match(r'^rule\s+' + re.escape(rule_name) + r'\s*($|\{)', stripped):
                     inside_rule = True
                 elif inside_rule and stripped.startswith("strings:"):
-                    continue
-                elif inside_rule and stripped.startswith("$"):
-                    match = re.match(r'^\$([a-zA-Z0-9_]+)\s*=\s*("(.*?)"|{.*?})', stripped)
+                    strings_section = True
+                elif inside_rule and strings_section and stripped.startswith("$"):
+                    # Extract string identifier and value with more flexible pattern
+                    match = re.match(r'^\$([a-zA-Z0-9_]+)\s*=\s*(.+)$', stripped)
                     if match:
                         identifier = match.group(1)
                         value = match.group(2).strip()
+                        # Remove trailing comments if any
+                        value = re.sub(r'\s+//.+$', '', value)
                         strings[identifier] = value
                 elif inside_rule and stripped.startswith("condition:"):
-                    break
+                    strings_section = False
+                elif inside_rule and stripped == "}" and not strings_section:
+                    inside_rule = False
 
         except Exception as e:
             print(f"Error parsing rule file: {e}")
@@ -83,12 +94,32 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
         for match in matches:
             rule_name = match['rule']
             rule_filepath = match['metadata'].get('rule_filepath')
+            
+            # If rule filepath is not found, try to find it by other means
             if not rule_filepath:
-                continue
-
+                # First try threat_name
+                threat_name = match['metadata'].get('threat_name')
+                if threat_name:
+                    rule_filepath = self._get_rule_filepath(threat_name)
+                
+                # Then try description (common in BinaryAlert rules)
+                if not rule_filepath and 'description' in match['metadata']:
+                    rule_filepath = self._get_rule_filepath_from_description(match['metadata']['description'])
+                
+                # Finally try rule name itself
+                if not rule_filepath:
+                    rule_filepath = self._get_rule_filepath_from_rule_name(rule_name)
+                
+                # Update metadata with found filepath
+                if rule_filepath:
+                    match['metadata']['rule_filepath'] = rule_filepath
+                else:
+                    continue  # Skip if no rule filepath found
+            
             rule_strings = self._parse_rule_strings(rule_filepath, rule_name)
 
             for string in match['strings']:
+                # Extract identifier without $ prefix
                 identifier = string['identifier'].lstrip('$')
                 if identifier in rule_strings:
                     # Replace raw data with mapped definition
@@ -97,6 +128,7 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
     def _parse_output(self, output):
         """
         Parse the YARA scan output and extract matches with their details.
+        More flexible to handle different YARA output formats.
         """
         matches = []
         current_match = None
@@ -108,27 +140,56 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
             if not line or line.startswith('YARA Scan Results') or line == 'Static pattern matching analysis results.':
                 continue
 
-            if '[' in line and ']' in line and ' [author=' in line:
+            # More flexible rule match line detection
+            if '[' in line and ']' in line and (re.search(r'\[\s*\w+\s*=', line) or ' matched ' in line):
                 if current_match:
                     current_match['strings'] = current_strings
                     matches.append(current_match)
                     current_strings = []
 
                 try:
-                    before_bracket = line.split(' [', 1)
-                    rule_name = before_bracket[0].strip()
+                    # Handle different formats of rule match line
+                    if ' matched ' in line:
+                        # Format: "rule matched process"
+                        parts = line.split(' matched ')
+                        rule_name = parts[0].strip()
+                        target = parts[1].strip()
+                        metadata_str = ""
+                    else:
+                        # Format: "rule [metadata] process"
+                        before_bracket = line.split(' [', 1)
+                        rule_name = before_bracket[0].strip()
+                        
+                        # Extract everything between first [ and last ]
+                        bracket_start = line.find('[')
+                        bracket_end = line.rfind(']')
+                        
+                        if bracket_start != -1 and bracket_end != -1:
+                            metadata_str = line[bracket_start+1:bracket_end]
+                            target = line[bracket_end+1:].strip()
+                        else:
+                            metadata_str = ""
+                            target = line.split(']')[-1].strip()
 
-                    bracket_content = line[line.find('[')+1:line.rfind(']')]
-                    target = line[line.rfind(']')+1:].strip()
-
-                    metadata = self._parse_metadata(bracket_content)
-                    metadata['rule_filepath'] = self._get_rule_filepath(metadata.get('threat_name'))
+                    metadata = self._parse_metadata(metadata_str)
+                    
+                    # Try to get rule filepath using different methods
+                    rule_filepath = None
+                    if 'threat_name' in metadata:
+                        rule_filepath = self._get_rule_filepath(metadata['threat_name'])
+                    elif 'description' in metadata:
+                        rule_filepath = self._get_rule_filepath_from_description(metadata['description'])
+                    
+                    if not rule_filepath:
+                        rule_filepath = self._get_rule_filepath_from_rule_name(rule_name)
+                    
+                    metadata['rule_filepath'] = rule_filepath
 
                     current_match = {
                         'rule': rule_name,
                         'metadata': metadata,
                         'strings': [],
-                        'target_file': target
+                        'target_file': target  # For process memory, this will be the process info
                     }
                 except Exception as e:
                     print(f"Error parsing rule line: {e}")
@@ -136,11 +197,20 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
 
             elif line.startswith('0x'):
                 try:
-                    parts = line.split(':', 2)
+                    # More flexible string match parsing
+                    parts = re.split(r':\s+', line, 2)
                     if len(parts) >= 2:
                         offset = parts[0].strip()
-                        identifier = parts[1].strip()
-                        string_data = parts[2].strip() if len(parts) > 2 else ''
+                        
+                        if len(parts) == 2:
+                            # Format: "0xoffset: data"
+                            identifier = "unnamed_string"
+                            string_data = parts[1].strip()
+                        else:
+                            # Format: "0xoffset: $identifier: data"
+                            identifier_parts = parts[1].strip().split(' ')
+                            identifier = identifier_parts[0]
+                            string_data = parts[2].strip() if len(parts) > 2 else ''
 
                         current_strings.append({
                             'offset': offset,
@@ -159,23 +229,45 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
 
     def _parse_metadata(self, metadata_str):
         """
-        Parse the metadata section from YARA rule match, including essential fields
-        and the path to the triggered rule file.
+        Parse the metadata section from YARA rule match with support for different field naming conventions.
         """
         metadata = {}
-        essential_fields = {'id', 'creation_date', 'threat_name', 'severity'}
+        
+        # Field mappings to normalize different naming conventions
+        field_mappings = {
+            'date': 'creation_date',
+            'modified': 'last_modified',
+            'description': 'description',
+            'score': 'severity'
+        }
+        
+        # Important fields to extract
+        important_fields = {'id', 'creation_date', 'threat_name', 'severity', 'description', 'author', 'date', 'modified', 'score'}
 
+        # Match key-value pairs with more flexible pattern
         pairs = re.findall(r'([^,\s]+?)\s*=\s*(?:"([^\"]+)"|(\d+)|([^,\s]+))', metadata_str)
         for pair in pairs:
             key = pair[0]
-            if key in essential_fields:
-                value = next(v for v in pair[1:] if v)
-                if key == 'severity':
-                    try:
-                        value = int(value)
-                    except ValueError:
-                        value = 0
-                metadata[key] = value
+            # Get the first non-empty value from the capture groups
+            value = next((v for v in pair[1:] if v), "")
+            
+            # Normalize field names
+            normalized_key = field_mappings.get(key, key)
+            
+            # Convert severity/score to int if possible
+            if normalized_key == 'severity' and value:
+                try:
+                    value = int(value)
+                except ValueError:
+                    value = 0
+                    
+            # Only store important fields or normalized versions
+            if key in important_fields or normalized_key in important_fields:
+                metadata[normalized_key] = value
+                
+                # Also store original key for completeness
+                if key != normalized_key:
+                    metadata[key] = value
 
         return metadata
 
@@ -186,12 +278,78 @@ class YaraDynamicAnalyzer(DynamicAnalyzer):
         if not threat_name:
             return None
 
-        rules_dir = os.path.dirname(self.config['analysis']['static']['yara']['rules_path'])
+        # Note: We're using the static analyzer's path since that's where original code looked
+        # This might need to be adapted based on your configuration structure
+        rules_dir = os.path.dirname(self.config['analysis']['dynamic']['yara']['rules_path'])
         rule_filename = threat_name.replace('.', '_')
         if not rule_filename.endswith('.yar'):
             rule_filename += '.yar'
 
-        return os.path.join(rules_dir, rule_filename)
+        filepath = os.path.join(rules_dir, rule_filename)
+        return filepath if os.path.exists(filepath) else None
+
+    def _get_rule_filepath_from_description(self, description):
+        """
+        Try to find rule file based on description.
+        """
+        if not description:
+            return None
+            
+        rules_dir = os.path.dirname(self.config['analysis']['dynamic']['yara']['rules_path'])
+        
+        # Extract a potential filename from description
+        words = re.split(r'[:\s]', description)
+        if not words:
+            return None
+            
+        # Try several potential filenames based on words in description
+        for i in range(min(4, len(words))):
+            potential_name = '_'.join(words[:i+1]).lower()
+            for ext in ['.yar', '.yara']:
+                filepath = os.path.join(rules_dir, potential_name + ext)
+                if os.path.exists(filepath):
+                    return filepath
+                
+        return None
+        
+    def _get_rule_filepath_from_rule_name(self, rule_name):
+        """
+        Try to find rule file based on rule name.
+        """
+        if not rule_name:
+            return None
+            
+        rules_dir = os.path.dirname(self.config['analysis']['dynamic']['yara']['rules_path'])
+        
+        # Try different variations of the rule name
+        variations = [
+            rule_name,
+            rule_name.replace('_', '.'),
+            rule_name.split('_')[0] if '_' in rule_name else None,
+        ]
+        
+        for variation in variations:
+            if not variation:
+                continue
+                
+            for ext in ['.yar', '.yara']:
+                filepath = os.path.join(rules_dir, variation + ext)
+                if os.path.exists(filepath):
+                    return filepath
+                    
+        # Last resort: Try scanning all files in the rules directory
+        try:
+            for filename in os.listdir(rules_dir):
+                if filename.endswith('.yar') or filename.endswith('.yara'):
+                    filepath = os.path.join(rules_dir, filename)
+                    with open(filepath, 'r') as f:
+                        content = f.read()
+                        if f"rule {rule_name}" in content or f"rule {rule_name} " in content:
+                            return filepath
+        except Exception as e:
+            print(f"Error scanning rule files: {e}")
+                    
+        return None
 
     def cleanup(self):
         """
