@@ -288,15 +288,15 @@ class Utils:
         
         with open(filepath, 'wb') as f:
             f.write(file_content)
-
         entropy_value = self.calculate_entropy(file_content)
-        
+        file_type_info = self.detect_file_type(filepath)
+
         file_info = {
             'original_name': original_filename,
             'md5': md5_hash,
             'sha256': sha256_hash,
             'size': len(file_content),
-            'extension': extension,
+            'extension': file_type_info['type'],
             'mime_type': mimetypes.guess_type(original_filename)[0] or 'application/octet-stream',
             'upload_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'entropy': entropy_value,
@@ -315,22 +315,159 @@ class Utils:
             file_info['entropy_analysis']['notes'].append(
                 'Moderate entropy - may trigger basic detection')
         
+        # Detect file type based on content
+        file_info['detected_type'] = file_type_info
+        
         # Add specific file type information for PE files
-        if extension in ['.exe', '.dll', '.sys']:
+        if file_type_info['family'] == 'pe':
             file_info.update(self.get_pe_info(filepath))
-
+        
         # Add specific file type information for Office documents
-        if extension in ['.docx', '.xlsx', '.doc', '.xls', '.xlsm', '.docm']:
+        if file_type_info['family'] == 'office':
             office_result = self.get_office_info(filepath)
             if 'error' in office_result:
                 print(f"Warning: {office_result['error']}")
             file_info.update(office_result)
-
+        
         # Save file info to result folder
         with open(os.path.join(result_folder, filename, 'file_info.json'), 'w') as f:
             json.dump(file_info, f)
-
         return file_info
+
+    def detect_file_type(self, filepath):
+        """
+        Detect file type based on magic bytes and internal structure.
+        Returns a dictionary with 'family' and 'type' keys.
+        Supports PE files (exe/dll/sys) and Office documents.
+        """
+        import struct
+        import pathlib
+        
+        # Magic byte signatures
+        MZ = b"MZ"  # PE files
+        CFBF = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"  # Compound File (old Office)
+        ZIP_PK = b"PK\x03\x04"  # ZIP (OOXML, ODT, etc.)
+        
+        # PE machines (architectures)
+        PE_MACHINES = {0x14c: "x86", 0x8664: "x64", 0x1c0: "ARM", 0xaa64: "ARM64"}
+        
+        try:
+            p = pathlib.Path(filepath)
+            with p.open('rb') as fp:
+                header = fp.read(8)
+            
+            # PE files (EXE/DLL/SYS)
+            if header.startswith(MZ):
+                try:
+                    with p.open('rb') as fp:
+                        # Read PE header offset
+                        fp.seek(0x3C)
+                        pe_offset = struct.unpack('<I', fp.read(4))[0]
+                        
+                        # Check PE signature
+                        fp.seek(pe_offset)
+                        if fp.read(4) != b'PE\x00\x00':
+                            return {"family": "pe", "type": "corrupted"}
+                        
+                        # Read COFF header
+                        machine, _, _, _, _, opt_header_size, characteristics = struct.unpack(
+                            '<HHIIIHH', fp.read(20)
+                        )
+                        
+                        # Read optional header to get subsystem
+                        opt_header = fp.read(opt_header_size)
+                        if len(opt_header) < 70:
+                            return {"family": "pe", "type": "corrupted"}
+                        
+                        subsystem = struct.unpack_from('<H', opt_header, 68)[0]
+                        
+                        # Determine file type
+                        is_dll = bool(characteristics & 0x2000)  # IMAGE_FILE_DLL
+                        is_system = bool(characteristics & 0x1000)  # IMAGE_FILE_SYSTEM
+                        is_driver = is_system or subsystem in (1, 11, 12)  # Native or EFI driver
+                        
+                        arch = PE_MACHINES.get(machine, f"0x{machine:x}")
+                        
+                        if is_driver:
+                            return {"family": "pe", "type": "sys", "arch": arch}
+                        elif is_dll:
+                            return {"family": "pe", "type": "dll", "arch": arch}
+                        else:
+                            return {"family": "pe", "type": "exe", "arch": arch}
+                except Exception:
+                    return {"family": "pe", "type": "corrupted"}
+            
+            # Legacy Office formats
+            if header.startswith(CFBF):
+                try:
+                    import olefile
+                    if not olefile.isOleFile(filepath):
+                        return {"family": "office", "type": "invalid"}
+                    
+                    with olefile.OleFileIO(filepath) as ole:
+                        streams = {entry[0].lower() for entry in ole.listdir()}
+                        
+                        if "worddocument" in streams:
+                            return {"family": "office", "type": "doc"}
+                        if "workbook" in streams or "book" in streams:
+                            return {"family": "office", "type": "xls"}
+                        if "powerpoint document" in streams:
+                            return {"family": "office", "type": "ppt"}
+                        if "visio document" in streams:
+                            return {"family": "office", "type": "vsd"}
+                        if "outlinecache" in streams:
+                            return {"family": "office", "type": "one"}
+                        
+                        return {"family": "office", "type": "ole-unknown"}
+                except ImportError:
+                    return {"family": "office", "type": "ole-storage"}
+                except Exception:
+                    return {"family": "office", "type": "corrupted"}
+            
+            # ZIP-based Office formats
+            if header.startswith(ZIP_PK):
+                try:
+                    import zipfile
+                    with zipfile.ZipFile(filepath) as z:
+                        names = {n.lower() for n in z.namelist()}
+                        
+                        # Office Open XML formats
+                        if "[content_types].xml" in names:
+                            if "word/document.xml" in names:
+                                return {"family": "office", "type": "docx"}
+                            if "xl/workbook.xml" in names:
+                                return {"family": "office", "type": "xlsx"}
+                            if "ppt/presentation.xml" in names:
+                                return {"family": "office", "type": "pptx"}
+                            if "visio/document.xml" in names:
+                                return {"family": "office", "type": "vsdx"}
+                            return {"family": "office", "type": "ooxml-unknown"}
+                        
+                        # OpenDocument formats
+                        if "mimetype" in names:
+                            try:
+                                with z.open("mimetype") as f:
+                                    mimetype = f.read().decode('utf-8').strip()
+                                
+                                if "opendocument.text" in mimetype:
+                                    return {"family": "office", "type": "odt"}
+                                if "opendocument.spreadsheet" in mimetype:
+                                    return {"family": "office", "type": "ods"}
+                                if "opendocument.presentation" in mimetype:
+                                    return {"family": "office", "type": "odp"}
+                            except:
+                                pass
+                        
+                        return {"family": "zip", "type": "zip"}
+                except zipfile.BadZipFile:
+                    return {"family": "zip", "type": "corrupted"}
+                except Exception:
+                    return {"family": "zip", "type": "error"}
+            
+            return {"family": "unknown", "type": "unknown"}
+        
+        except Exception as e:
+            return {"family": "error", "type": str(e)}
 
     def find_file_by_hash(self, file_hash, search_folder):
         """

@@ -1,8 +1,12 @@
 // app/static/js/upload.js
 
+// Check if serverConfig exists and use a default if it doesn't
+const maxFileSize = (window.serverConfig && window.serverConfig.maxFileSize) || 100 * 1024 * 1024;
+const maxFileSizeMB = (window.serverConfig && window.serverConfig.maxFileSizeMB) || 100;
+
 // Upload configurations
 const UPLOAD_CONFIG = {
-    maxFileSize: 100 * 1024 * 1024, // 16MB
+    maxFileSize: maxFileSize,
     toastDuration: 3000,
     transitionDelay: 300,
     fadeDelay: 50

@@ -425,7 +425,13 @@
 <!-- Toast Notifications -->
 <div id="toastContainer" class="fixed bottom-4 right-4 space-y-2"></div>
 {% endblock %}
-
+<script>
+    // Create a global config object that your JS can access
+    window.serverConfig = {
+        maxFileSize: {{ config.utils.max_file_size }},
+        maxFileSizeMB: {{ (config.utils.max_file_size / 1024 / 1024) | round(1) }}
+    };
+</script>
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+<script src="{{ url_for('static', filename='js/upload.js') }}"defer></script>
 {% endblock %}

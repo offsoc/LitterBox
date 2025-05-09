@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.5.2] - 2025-05-09
+### Fixed
+- Clinet Side: removed hard-coded size limit  
+- Removed file-type detection based on extension
+
+### Added
+- File-type detection based on magic bytes
+
+
 ## [v2.5.1] - 2025-04-24
 ### Fixed
 - Cleanup method bug fixed FuzzyDB delete
@@ -13,7 +22,6 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - YARA Forge Extended set
-
 
 
 ## [v2.5.0] - 2025-02-16
@@ -30,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Improved folder structure and creation process
 - Enhanced error handelig on Blender analyzer client side
 - base.html template disaply app version
+
 
 ## [v2.0.0] - 2025-02-08
 ### Added
@@ -54,6 +63,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Resolved missing IOC issue in Moneta.
 - Multiple bug fixes in summary section
+
 
 ## [v1.6.0] - 2025-01-26
 ### Added
