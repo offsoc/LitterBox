@@ -148,4 +148,8 @@ mcp install .\LitterBoxMCP.py
 
 ## Claude prompts example
 
+
+https://github.com/user-attachments/assets/853f588f-4660-4707-b5f3-bc1ea8afb2b2
+
+
 ![LitterBoxMCP](../Screenshots/LitterBoxMCP.mp4)
