@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v3.0.0] - 2025-05-16
+### Added
+- Python Clients to interact with LitterBox Server 
+	* `grumpycat.py` - python standalone cli client
+	* `LitterBoxMCP.py` - MCP Server to intercat with LitterBox Server
+
 ## [v2.5.2] - 2025-05-09
 ### Fixed
 - Clinet Side: removed hard-coded size limit  
