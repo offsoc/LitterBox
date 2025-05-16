@@ -148,4 +148,4 @@ mcp install .\LitterBoxMCP.py
 
 ## Claude prompts example
 
-![LitterBoxMCP](../Screenshots/LitterBoxMCP.mp4)
+![LitterBoxMCP](/Screenshots/LitterBoxMCP.mp4)
