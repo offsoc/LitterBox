@@ -197,6 +197,7 @@ For programmatic access to LitterBox APIs, use the **GrumpyCats** client library
 **[GrumpyCats README](GrumpyCats/README.md)**
 
 **grumpycat.py** - Python client for LitterBox API interaction
+
 **LitterBoxMCP.py** - MCP server for LLM-assisted malware analysis
 
 ---
