@@ -2,7 +2,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
-
+[![MCP Supported](https://img.shields.io/badge/MCP-Supported-blueviolet.svg)]()
+[![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
 A comprehensive toolkit for interacting with LitterBox malware analysis sandbox, featuring a standalone Python client and an MCP server for LLM-assisted analysis.
 
 ---
