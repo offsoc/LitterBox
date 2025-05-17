@@ -17,6 +17,7 @@ This ensures your payloads work as intended before execution in target environme
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
 [![OS](https://img.shields.io/badge/os-Windows-blue.svg)]()
+[![MCP Supported](https://img.shields.io/badge/MCP-Supported-blueviolet.svg)]()
 [![GitHub Stars](https://img.shields.io/github/stars/BlackSnufkin/LitterBox)](https://github.com/BlackSnufkin/LitterBox/stargazers)
 
 
