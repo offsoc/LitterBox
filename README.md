@@ -10,7 +10,9 @@ This Web Application enables red teamers to validate evasion techniques, assess 
 
 Think of it as your personal LitterBox for perfecting your tradecraft without leaving traces on production detection systems.
 
-The platform provides automated analysis through an intuitive web interface, monitoring process behavior and generating comprehensive runtime analysis reports. 
+LitterBox includes LLM-assisted malware analysis through the LitterBoxMCP server, enhancing the platform's analysis capabilities with natural language processing.
+
+The platform provides automated analysis accessible through three interfaces: an intuitive web browser UI, a Python client for programmatic access, and direct integration with LLM agent.
 
 This ensures your payloads work as intended before execution in target environments.
 
@@ -59,7 +61,7 @@ Available in two modes:
 - File Analysis Mode
 - Process ID (PID) Analysis Mode
 
-Features include:
+Analysis include:
 - Behavioral monitoring
 - Memory region inspection
 - Process hollowing detection
