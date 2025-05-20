@@ -204,6 +204,10 @@ For programmatic access to LitterBox APIs, use the **GrumpyCats** client library
 
 ---
 
+## Contributing
+Please do all of your development in a feature branch on your own fork of LitterBox.
+Contribution guidelines can be found here: [CONTRIBUTING.md](./CONTRIBUTING.md)
+
 ## SECURITY WARNINGS
 
 - **DO NOT USE IN PRODUCTION**: This tool is designed for development and testing environments only. Running it in production could expose your systems to serious security risks.
