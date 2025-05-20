@@ -1,20 +1,6 @@
 # LitterBox
 
-![single grumpy cat](https://github.com/user-attachments/assets/20030454-55b8-4473-b7b7-f65bb7150d51)
-
-Your malware's favorite sandbox - where red teamers come to bury their payloads.
-
-A sandbox environment designed specifically for malware development and payload testing. 
-
-This Web Application enables red teamers to validate evasion techniques, assess detection signatures, and test implant behavior before deployment in the field. 
-
-Think of it as your personal LitterBox for perfecting your tradecraft without leaving traces on production detection systems.
-
-LitterBox includes LLM-assisted malware analysis through the LitterBoxMCP server, enhancing the platform's analysis capabilities with natural language processing.
-
-The platform provides automated analysis accessible through three interfaces: an intuitive web browser UI, a Python client for programmatic access, and direct integration with LLM agent.
-
-This ensures your payloads work as intended before execution in target environments.
+![LitterBox Logo](https://github.com/user-attachments/assets/20030454-55b8-4473-b7b7-f65bb7150d51)
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)]()
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
@@ -22,141 +8,180 @@ This ensures your payloads work as intended before execution in target environme
 [![MCP Supported](https://img.shields.io/badge/MCP-Supported-blueviolet.svg)]()
 [![GitHub Stars](https://img.shields.io/github/stars/BlackSnufkin/LitterBox)](https://github.com/BlackSnufkin/LitterBox/stargazers)
 
+## Table of Contents
+- [Overview](#overview)
+- [Analysis Capabilities](#analysis-capabilities)
+- [Analysis Engines](#analysis-engines)
+- [Integrated Tools](#integrated-tools)
+- [API Reference](#api-reference)
+- [Installation](#installation)
+- [Access Methods](#access-methods)
+- [Configuration](#configuration)
+- [Client Libraries](#client-libraries)
+- [Contributing](#contributing)
+- [Security Advisory](#security-advisory)
+- [Acknowledgments](#acknowledgments)
+- [Interface](#interface)
 
-## Features
+## Overview
 
-### Initial Analysis
-- File identification with multiple hashing algorithms (MD5, SHA256)
-- Shannon entropy calculation for encryption detection
-- Advanced file type detection and MIME analysis
-- Original filename preservation
-- Upload timestamp tracking
+LitterBox provides a controlled sandbox environment designed for security professionals to develop and test malware payloads. This platform allows red teams to:
 
-### PE File Analysis
-For Windows executables (.exe, .dll, .sys):
-- PE file type detection (PE32/PE32+)
-- Machine architecture identification
-- Compilation timestamp analysis
-- Subsystem classification
-- Entry point detection
-- Section enumeration and analysis
-- Import DLL dependency mapping
+* Test evasion techniques against modern detection techniques
+* Validate detection signatures before field deployment
+* Analyze malware behavior in an isolated environment
+* Keep payloads in-house without exposing them to external security vendors
+* Ensure payload functionality without triggering production security controls
 
-### Office Document Analysis
-For Microsoft Office files (.docx, .xlsx, .doc, .xls, .xlsm, .docm):
-- Macro detection and extraction
-- VBA code analysis
-- Hidden content identification
+The platform includes LLM-assisted analysis capabilities through the LitterBoxMCP server, offering advanced analytical insights using natural language processing technology.
+
+
 
 ## Analysis Capabilities
 
-### Static Analysis Engine
-- Signature-based detection using industry-standard rulesets
-- Binary entropy analysis
-- String extraction and analysis
-- Pattern matching for suspicious indicators
+### Initial Processing
 
-### Dynamic Analysis Engine
-Available in two modes:
-- File Analysis Mode
-- Process ID (PID) Analysis Mode
+| Feature | Description |
+|---------|-------------|
+| File Identification | Multiple hashing algorithms (MD5, SHA256) |
+| Entropy Analysis | Detection of encryption and obfuscation |
+| Type Classification | Advanced MIME and file type analysis |
+| Metadata Preservation | Original filename and timestamp tracking |
 
-Analysis include:
-- Behavioral monitoring
-- Memory region inspection
+### Executable Analysis
+
+For Windows PE files (.exe, .dll, .sys):
+
+- Architecture identification (PE32/PE32+)
+- Compilation timestamp verification
+- Subsystem classification
+- Entry point analysis
+- Section enumeration and characterization
+- Import/export table mapping
+
+### Document Analysis
+
+For Microsoft Office files:
+
+- Macro detection and extraction
+- VBA code security analysis
+- Hidden content identification
+- Obfuscation technique detection
+
+## Analysis Engines
+
+### Static Analysis
+
+- Industry-standard signature detection
+- Binary entropy profiling
+- String extraction and classification
+- Pattern matching for known indicators
+
+### Dynamic Analysis
+
+Available in dual operation modes:
+- **File Analysis**: Focused on submitted samples
+- **Process Analysis**: Targeting running processes by PID
+
+Capabilities include:
+
+- Runtime behavioral monitoring
+- Memory region inspection and classification
 - Process hollowing detection
-- Injection technique analysis
-- Sleep pattern monitoring
-- Collect Windows telemetry via ETW
+- Code injection technique identification
+- Sleep pattern analysis
+- Windows telemetry collection via ETW
 
 ### Doppelganger Analysis
-Doppelganger helps you analyze payload in two ways:
 
-#### Blender
-Looks at what's running on your system by:
-- Scanning active processes to collect IOCs
-- Comparing these IOCs with your payload
-- Showing you which processes are the closest matches
+#### Blender Module
+Provides system-wide process comparison by:
+- Collecting IOCs from active processes
+- Comparing process characteristics with submitted payloads
+- Identifying behavioral similarities
 
-#### FuzzyHash
-Helps you find similar code by:
-- Storing known tools in a database
-- Using ssdeep to compare your payload with open-source tools
-- Showing matches in a simple way, with both overall and specific scores
-
+#### FuzzyHash Module
+Delivers code similarity analysis through:
+- Maintained database of known tools and malware
+- ssdeep fuzzy hash comparison methodology
+- Detailed similarity scoring and reporting
 
 ## Integrated Tools
 
 ### Static Analysis Suite
-- [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) - Pattern matching and signature detection
-- [CheckPlz](https://github.com/BlackSnufkin/CheckPlz) - AV detection testing
-- [Stringnalyzer](https://github.com/BlackSnufkin/Rusty-Playground/Stringnalyzer) - Payload Strings analyzer 
+- [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) - Signature detection engine
+- [CheckPlz](https://github.com/BlackSnufkin/CheckPlz) - AV detection testing framework
+- [Stringnalyzer](https://github.com/BlackSnufkin/Rusty-Playground/Stringnalyzer) - Advanced string analysis utility
 
 ### Dynamic Analysis Suite
-- [YARA](https://github.com/elastic/protections-artifacts/tree/main/yara) (memory scanning) - Runtime pattern detection
-- [PE-Sieve](https://github.com/hasherezade/pe-sieve) - Detecting and dumping in-memory malware implants and advanced process injection techniques
-- [Moneta](https://github.com/forrest-orr/moneta) - Usermode memory analysis tool to detect malware IOCs
-- [Patriot](https://github.com/BlackSnufkin/patriot) - Detecting various kinds of in-memory stealth techniques
-- [RedEdr](https://github.com/dobin/RedEdr) - Collect Windows telemetry via ETW providers
-- [Hunt-Sleeping-Beacons](https://github.com/thefLink/Hunt-Sleeping-Beacons) - Beacon behavior analysis
-- [Hollows-Hunter](https://github.com/hasherezade/hollows_hunter) - Recognizes variety of potentially malicious implants (replaced/implanted PEs, shellcodes, hooks, in-memory patches).
+- [YARA Memory](https://github.com/elastic/protections-artifacts/tree/main/yara) - Runtime pattern detection
+- [PE-Sieve](https://github.com/hasherezade/pe-sieve) - In-memory malware detection
+- [Moneta](https://github.com/forrest-orr/moneta) - Memory region IOC analyzer
+- [Patriot](https://github.com/BlackSnufkin/patriot) - In-memory stealth technique detection
+- [RedEdr](https://github.com/dobin/RedEdr) - ETW telemetry collection
+- [Hunt-Sleeping-Beacons](https://github.com/thefLink/Hunt-Sleeping-Beacons) - C2 beacon analyzer
+- [Hollows-Hunter](https://github.com/hasherezade/hollows_hunter) - Process hollowing detection
 
+## API Reference
 
-## Web Endpoint Reference
+### File Operations
+```http
+POST   /upload                    # Upload samples for analysis
+GET    /files                     # Retrieve processed file list
+```
 
-#### File Management
+### Analysis Endpoints
 ```http
-POST   /upload                    # Upload files for analysis
-GET    /files                     # Get list of processed files
+GET    /analyze/static/<hash>     # Execute static analysis
+POST   /analyze/dynamic/<hash>    # Perform dynamic file analysis  
+POST   /analyze/dynamic/<pid>     # Conduct process analysis
 ```
-#### Analysis Operations 
-```http
-GET    /analyze/static/<hash>     # Static file analysis
-POST   /analyze/dynamic/<hash>    # Dynamic file analysis  
-POST   /analyze/dynamic/<pid>     # Process analysis
-```
-#### Doppelganger Analyzer
-```http
 
-# Blender Analyzer
-GET    /doppelganger?type=blender               # Retrieve latest blender scan
-GET    /doppelganger?type=blender&hash=<hash>   # Compare processes with payload  
-POST   /doppelganger                            # Trigger system scan with {"type": "blender", "operation": "scan"}
+### Doppelganger API
+```http
+# Blender Module
+GET    /doppelganger?type=blender               # Retrieve latest scan results
+GET    /doppelganger?type=blender&hash=<hash>   # Compare process IOCs with payload  
+POST   /doppelganger                            # Execute system scan with {"type": "blender", "operation": "scan"}
 
-#FuzzyHash Analyer
-GET    /doppelganger?type=fuzzy                 # Get current fuzzy analysis stats
-GET    /doppelganger?type=fuzzy&hash=<hash>     # Analyze file with fuzzy hashing
-POST   /doppelganger                            # Create DB with {"type": "fuzzy", "operation": "create_db", "folder_path": "C:\path\to\folder"}
+# FuzzyHash Module
+GET    /doppelganger?type=fuzzy                 # Retrieve fuzzy analysis statistics
+GET    /doppelganger?type=fuzzy&hash=<hash>     # Execute fuzzy hash analysis
+POST   /doppelganger                            # Generate database with {"type": "fuzzy", "operation": "create_db", "folder_path": "C:\path\to\folder"}
 ```
-#### API Results (JSON)
+
+### Results Retrieval (JSON)
 ```http
-GET    /api/results/<hash>/info      # Get Json file info
-GET    /api/results/<hash>/static    # Get Json results for file static analysis
-GET    /api/results/<hash>/dynamic   # Get Json results for file dynamic analysis
-GET    /api/results/<pid>/dynamic    # Get Json results for pid analysis
+GET    /api/results/<hash>/info      # Retrieve file metadata
+GET    /api/results/<hash>/static    # Access static analysis results
+GET    /api/results/<hash>/dynamic   # Obtain dynamic analysis data
+GET    /api/results/<pid>/dynamic    # Retrieve process analysis data
 ```
-#### Web Results
+
+### Web Interface Results
 ```http
-GET    /results/<hash>/info      # Get file info
-GET    /results/<hash>/static    # Get results for file static analysis
-GET    /results/<hash>/dynamic   # Get results for file dynamic analysis
-GET    /results/<pid>/dynamic    # Get results for pid analysis
+GET    /results/<hash>/info      # View file information
+GET    /results/<hash>/static    # Access static analysis reports
+GET    /results/<hash>/dynamic   # View dynamic analysis reports
+GET    /results/<pid>/dynamic    # Access process analysis reports
 ```
-#### System Management
+
+### System Management
 ```http
-GET  /health                 # System health and tool status check
-POST /cleanup                # Clean analysis artifacts and uploads
-POST /validate/<pid>         # Validate process accessibility
-DELETE /file/<hash>          # Delete single analysis
+GET    /health                   # System health verification
+POST   /cleanup                  # Remove analysis artifacts
+POST   /validate/<pid>           # Verify process accessibility
+DELETE /file/<hash>              # Remove specific analysis
 ```
+
 ## Installation
 
-### Prerequisites
-- Windows OS only (Linux is not supported)
+### System Requirements
+- Windows operating system (Linux not supported)
 - Python 3.11 or higher
 - Administrator privileges
 
-### Setup Steps
+### Deployment Process
 
 1. Clone the repository:
 ```bash
@@ -164,63 +189,78 @@ git clone https://github.com/BlackSnufkin/LitterBox.git
 cd LitterBox
 ```
 
-2. Install required dependencies:
+2. Configure environment:
 ```bash
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### Running LitterBox
+## Operation
 
+Standard operation:
 ```bash
 python litterbox.py
 ```
-### Running LitterBox in debug mode
 
+Diagnostic mode:
 ```bash
 python litterbox.py --debug
 ```
 
-The web interface will be available at: `http://127.0.0.1:1337`
+## Access Methods
+
+LitterBox offers three access interfaces:
+
+- **Web UI**: Browser-based interface at `http://127.0.0.1:1337`
+- **API Access**: Programmatic integration via Python client
+- **LLM Integration**: AI agent interaction through MCP server
+
+For API access, see the [Client Libraries](#client-libraries) section.
 
 ## Configuration
 
-The `config.yml` file controls:
-- Upload directory and allowed extensions
-- Analysis tool paths and Command options
-- YARA rule locations
-- Analysis timeouts and limits
+All settings are stored in `config/config.yml`. Edit this file to:
 
-## Python Clients
+- Change server settings (host/port)
+- Set allowed file types
+- Configure analysis tools
+- Adjust timeouts
 
-For programmatic access to LitterBox APIs, use the **GrumpyCats** client library:
+## Client Libraries
 
-**[GrumpyCats README](GrumpyCats/README.md)**
+For programmatic access to LitterBox, use the **GrumpyCats** package:
 
-**grumpycat.py** - Python client for LitterBox API interaction
+**[GrumpyCats Documentation](GrumpyCats/README.md)**
 
-**LitterBoxMCP.py** - MCP server for LLM-assisted malware analysis
+The package includes:
 
----
+* **grumpycat.py**: Dual-purpose tool that functions as:
+  * Standalone CLI utility for direct server interaction
+  * Python library for integrating LitterBox capabilities into custom tools
+
+* **LitterBoxMCP.py**: Specialized server component that:
+  * Wraps the GrumpyCat library functionality
+  * Enables LLM agents to interact with the LitterBox analysis platform
+  * Provides natural language interfaces to malware analysis workflows
 
 ## Contributing
-Please do all of your development in a feature branch on your own fork of LitterBox.
-Contribution guidelines can be found here: [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-## SECURITY WARNINGS
+Development contributions should be conducted in feature branches on personal forks.
+For detailed contribution guidelines, refer to: [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-- **DO NOT USE IN PRODUCTION**: This tool is designed for development and testing environments only. Running it in production could expose your systems to serious security risks.
-- **ISOLATED ENVIRONMENT**: Only run LitterBox in an isolated, disposable virtual machine or dedicated testing environment.
-- **NO WARRANTY**: This software is provided "as is" without any guarantees. Use at your own risk.
-- **LEGAL DISCLAIMER**: Only use this tool for authorized testing purposes. Users are responsible for complying with all applicable laws and regulations.
+## Security Advisory
+
+- **DEVELOPMENT USE ONLY**: This platform is designed exclusively for testing environments. Production deployment presents significant security risks.
+- **ISOLATION REQUIRED**: Execute only in isolated virtual machines or dedicated testing environments.
+- **WARRANTY DISCLAIMER**: Provided without guarantees; use at your own risk.
+- **LEGAL COMPLIANCE**: Users are responsible for ensuring all usage complies with applicable laws and regulations.
 
 ## Acknowledgments
 
-This project incorporates the following open-source components and acknowledges their authors:
+This project incorporates technologies from the following contributors:
 
-
-- [Elastic](https://github.com/elastic/protections-artifacts/tree/main/yara)
+- [Elastic Security](https://github.com/elastic/protections-artifacts/tree/main/yara)
 - [hasherezade](https://github.com/hasherezade/pe-sieve)
 - [Forrest Orr](https://github.com/forrest-orr/moneta)
 - [rasta-mouse](https://github.com/rasta-mouse/ThreatCheck)
@@ -228,15 +268,14 @@ This project incorporates the following open-source components and acknowledges 
 - [joe-desimone](https://github.com/joe-desimone/patriot)
 - [dobin](https://github.com/dobin/RedEdr)
 
-## Screenshots
+## Interface
 
-![upload](Screenshots/upload.png)
+![Upload Interface](Screenshots/upload.png)
 
-![dynamic](Screenshots/dynamic.png)
+![Dynamic Analysis](Screenshots/dynamic.png)
 
-![static](Screenshots/static.png)
+![Static Analysis](Screenshots/static.png)
 
-![doppelganger](Screenshots/doppelganger.png)
+![Doppelganger Analysis](Screenshots/doppelganger.png)
 
-![summary](Screenshots/summary.png)
-
+![Summary View](Screenshots/summary.png)
