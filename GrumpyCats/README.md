@@ -1,88 +1,77 @@
-![frumpycats_banner](https://github.com/user-attachments/assets/9d4018f7-79e8-4835-82af-49cf6c12b9e9)
+# GrumpyCats
+
+![GrumpyCats Banner](https://github.com/user-attachments/assets/9d4018f7-79e8-4835-82af-49cf6c12b9e9)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
 [![MCP Supported](https://img.shields.io/badge/MCP-Supported-blueviolet.svg)]()
 [![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
 
-A comprehensive toolkit for interacting with LitterBox malware analysis sandbox, featuring a standalone Python client and an MCP server for LLM-assisted analysis.
+## Overview
 
+GrumpyCats provides a comprehensive toolkit for interacting with the LitterBox malware analysis sandbox. The package includes two main components:
+
+1. **grumpycat.py** - A Python client that functions as both a standalone CLI utility and an importable library
+2. **LitterBoxMCP.py** - An MCP server that enables LLM agents to interact with the LitterBox platform
+
+---
+
+## Table of Contents
+- [GrumpyCats](#grumpycats)
+  - [grumpycat.py](#grumpycatpy)
+  - [LitterBoxMCP.py](#litterboxmcppy)
+  - [Installation](#installation)
+  - [Usage Examples](#usage-examples)
+  - [API Reference](#litterboxmcp-api-reference)
 ---
 
 ## grumpycat.py
 
-**A Python client for interacting with a LitterBox malware analysis sandbox API.**
+This Python client provides both CLI and API access to the LitterBox malware analysis sandbox.
 
 ### Requirements
 
 ```bash
 pip install requests
 ```
-* NOTE: Install it globaly on the system 
+**Note:** Install globally on your system if using with Claude Desktop or other LLM agents.
 
-### Usage
+### Command Line Interface
 
 ```bash
 python grumpycat.py [GLOBAL_OPTIONS] <command> [COMMAND_OPTIONS]
 ```
 
-```
-LitterBox Malware Analysis Client
+### Available Commands
 
-positional arguments:
-  {upload,analyze-pid,results,files,doppelganger-scan,doppelganger,doppelganger-db,cleanup,health,delete}
-                        Command to execute
-    upload              Upload file for analysis
-    analyze-pid         Analyze running process
-    results             Get analysis results
-    files               Get summary of all analyzed files
-    doppelganger-scan   Run doppelganger system scan
-    doppelganger        Run doppelganger analysis
-    doppelganger-db     Create doppelganger fuzzy database
-    cleanup             Clean up analysis artifacts
-    health              Check service health
-    delete              Delete file and its results
+| Command | Description |
+|---------|-------------|
+| `upload` | Upload file for analysis |
+| `analyze-pid` | Analyze running process |
+| `results` | Get analysis results |
+| `files` | Get summary of all analyzed files |
+| `doppelganger-scan` | Run doppelganger system scan |
+| `doppelganger` | Run doppelganger analysis |
+| `doppelganger-db` | Create doppelganger fuzzy database |
+| `cleanup` | Clean up analysis artifacts |
+| `health` | Check service health |
+| `delete` | Delete file and its results |
 
-options:
-  -h, --help            show this help message and exit
-  --debug               Enable debug logging
-  --url URL             LitterBox server URL
-  --timeout TIMEOUT     Request timeout in seconds
-  --no-verify-ssl       Disable SSL verification
-  --proxy PROXY         Proxy URL (e.g., http://proxy:8080)
+### Global Options
 
+| Option | Description |
+|--------|-------------|
+| `--debug` | Enable debug logging |
+| `--url URL` | LitterBox server URL |
+| `--timeout TIMEOUT` | Request timeout in seconds |
+| `--no-verify-ssl` | Disable SSL verification |
+| `--proxy PROXY` | Proxy URL (e.g., http://proxy:8080) |
 
-```
-
-## Examples
-
-```
-  # Upload and analyze a file
-  grumpycat.py upload malware.exe --analysis static dynamic
-
-  # Analyze a running process
-  grumpycat.py analyze-pid 1234 --wait
-
-  # Run Doppelganger scan
-  grumpycat.py doppelganger-scan --type blender
-
-  # Run Doppelganger analysis
-  grumpycat.py doppelganger abc123def --type fuzzy
-
-  # Create fuzzy hash database
-  grumpycat.py doppelganger-db --folder /path/to/files --extensions .exe .dll
-
-  # Get analysis results
-  grumpycat.py results abc123def --type static
-
-  # Clean up analysis artifacts
-  grumpycat.py cleanup --all
-```
 ---
 
 ## LitterBoxMCP.py
 
-**A MCP server that wrap grumpycat.py to intercat with LitterBox server.**
+The LitterBoxMCP server wraps the grumpycat.py functionality to enable LLM agents (like Claude) to interact with the LitterBox analysis platform through natural language.
 
 ### Requirements
 
@@ -97,9 +86,6 @@ options:
 
 ### Setup
 
-1. **Install all requirements**
-2. **Install LitterBoxMCP in Claude Desktop:**
-
 ```bash
 mcp install .\LitterBoxMCP.py
 ```
@@ -110,10 +96,68 @@ mcp install .\LitterBoxMCP.py
                     INFO     Successfully installed LitterBoxMCP in Claude app  
 ```
 
+---
+
+## Installation
+
+1. Clone or download the GrumpyCats repository
+2. For CLI usage, install the requests library globally
+3. For MCP server usage, install all requirements listed in the LitterBoxMCP section
+4. Install the MCP server in Claude Desktop if using LLM integration
+
+---
+
+## Usage Examples
+
+### Basic Analysis Workflow
+
+```bash
+# Upload and analyze a file
+grumpycat.py upload malware.exe --analysis static dynamic
+
+# Analyze a running process
+grumpycat.py analyze-pid 1234 --wait
+
+# Get analysis results
+grumpycat.py results abc123def --type static
+```
+
+### Doppelganger Analysis
+
+```bash
+# Run Doppelganger scan
+grumpycat.py doppelganger-scan --type blender
+
+# Run Doppelganger analysis
+grumpycat.py doppelganger abc123def --type fuzzy
+
+# Create fuzzy hash database
+grumpycat.py doppelganger-db --folder /path/to/files --extensions .exe .dll
+```
+
+### Maintenance Operations
+
+```bash
+# Clean up analysis artifacts
+grumpycat.py cleanup --all
+
+# Check system health
+grumpycat.py health
+
+# Delete a payload and its results
+grumpycat.py delete abc123def
+```
+
+---
+
+## LitterBoxMCP API Reference
+
+The following functions are available when using LitterBoxMCP with Claude Desktop or other LLM agents:
+
 ### Core Analysis Tools
 
-| Tool | Description |
-|------|-------------|
+| Function | Description |
+|----------|-------------|
 | `upload_payload(path, name=None)` | Upload payload and get hash for analysis |
 | `analyze_static(file_hash)` | Run static analysis - check YARA signatures and file characteristics |
 | `analyze_dynamic(target, cmd_args=None)` | Run dynamic analysis - test behavioral detection and runtime artifacts |
@@ -123,8 +167,8 @@ mcp install .\LitterBoxMCP.py
 
 ### Utility Tools
 
-| Tool | Description |
-|------|-------------|
+| Function | Description |
+|----------|-------------|
 | `list_payloads()` | Get summary of all tested payloads |
 | `validate_pid(pid)` | Validate process ID before dynamic analysis |
 | `cleanup()` | Remove all testing artifacts from sandbox |
@@ -141,17 +185,6 @@ mcp install .\LitterBoxMCP.py
 | `generate_improvement_plan(file_hash="")` | Create prioritized roadmap for payload enhancement |
 | `evaluate_deployment_readiness(file_hash="")` | Assess if payload is ready for operational deployment |
 
-### Key Features
+### Claude Integration
 
-- **Robust Error Handling** - Detailed status messages for API errors
-- **OPSEC Focus** - Detection evasion, signature bypassing, and attribution avoidance
-- **Actionable Intelligence** - Specific recommendations for improving payload stealth
-- **Comprehensive Analysis** - Static signatures, dynamic behavior, and operational security
-
-## Claude prompts example
-
-
-https://github.com/user-attachments/assets/bd5e0653-c4c3-4d89-8651-215b8ee9cea2
-
-
-
+![Claude LitterBox Integration](https://github.com/user-attachments/assets/bd5e0653-c4c3-4d89-8651-215b8ee9cea2)
