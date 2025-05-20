@@ -187,4 +187,4 @@ The following functions are available when using LitterBoxMCP with Claude Deskto
 
 ### Claude Integration
 
-![Claude LitterBox Integration](https://github.com/user-attachments/assets/bd5e0653-c4c3-4d89-8651-215b8ee9cea2)
+https://github.com/user-attachments/assets/bd5e0653-c4c3-4d89-8651-215b8ee9cea2
