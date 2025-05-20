@@ -1,4 +1,4 @@
-# GrumpyCats - LitterBox Malware Analysis Clients
+![frumpycats_banner](https://github.com/user-attachments/assets/9d4018f7-79e8-4835-82af-49cf6c12b9e9)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-GPL%20v3-green.svg)]()
