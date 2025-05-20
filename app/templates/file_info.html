@@ -250,6 +250,7 @@
         </div>
 
         <!-- Suspicious Imports -->
+        <!-- Suspicious Imports -->
         {% if file_info.pe_info.suspicious_imports %}
         <div>
             <h3 class="text-sm font-medium text-gray-400 mb-3">Suspicious Imports</h3>
@@ -260,7 +261,7 @@
                     <div class="space-y-2">
                         {% for import in imports %}
                         <div class="pl-4 border-l-2 border-red-900/20">
-                            <p class="text-gray-300 font-mono">{{ import.function }}</p>
+                            <p class="text-gray-300 font-mono">{{ import.function }} <span class="text-red-300">[{{ import.category }}]</span></p>
                             <p class="text-sm text-gray-400 mt-1">{{ import.note }}</p>
                         </div>
                         {% endfor %}

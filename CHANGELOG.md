@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v3.0.1] - 2025-05-16
+### Added
+- New PE file suspicious Imports classification via MalApi.io db 
+- Wiki guide how to add new analyzer 
+
+### Changed
+- README formats and text
+- File upload UI improved suspicious Imports
+- Directory struct
+
 ## [v3.0.0] - 2025-05-16
 ### Added
 - Python Clients to interact with LitterBox Server 

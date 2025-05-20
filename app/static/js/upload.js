@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const pe = fileInfo.pe_info;
 
             // Handle suspicious imports
+            // Modified suspicious imports section inside renderFileTypeSpecificInfo function
             if (pe.suspicious_imports && pe.suspicious_imports.length > 0) {
                 elements.suspiciousImports.classList.remove('hidden');
                 elements.suspiciousImportsCount.textContent = `${pe.suspicious_imports.length} Found`;
@@ -267,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="text-red-500 font-mono">${imp.dll}</span>
                                 <span class="text-gray-400">→</span>
                                 <span class="text-gray-300 font-mono">${imp.function}</span>
+                                <span class="ml-2 px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded-full">[${imp.category || 'Unknown'}]</span>
                             </div>
                             <span class="text-xs text-gray-500">Hint: ${imp.hint}</span>
                         </div>

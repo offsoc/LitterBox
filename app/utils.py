@@ -68,7 +68,7 @@ class Utils:
 
     def get_pe_info(self, filepath):
         """
-        Enhanced PE file analysis with deep import analysis and detection vectors.
+        Enhanced PE file analysis with deep import analysis and detection vectors using MalAPI data.
         
         Args:
             filepath (str): Path to the PE file.
@@ -82,36 +82,45 @@ class Utils:
             # Enhanced section analysis
             sections_info = []
             suspicious_imports = []
-            high_risk_imports = {
-                'kernel32.dll': {
-                    'createremotethread': 'Process Injection capability detected',
-                    'virtualallocex': 'Memory allocation in remote process detected',
-                    'writeprocessmemory': 'Process memory manipulation detected',
-                    'getprocaddress': 'Dynamic API resolution - possible evasion technique',
-                    'loadlibrarya': 'Dynamic library loading - possible evasion technique',
-                    'openprocess': 'Process manipulation capability',
-                    'createtoolhelp32snapshot': 'Process enumeration capability',
-                    'process32first': 'Process enumeration capability',
-                    'process32next': 'Process enumeration capability'
-                },
-                'user32.dll': {
-                    'getasynckeystate': 'Potential keylogging capability',
-                    'getdc': 'Screen capture capability',
-                    'getforegroundwindow': 'Window/Process monitoring capability'
-                },
-                'wininet.dll': {
-                    'internetconnect': 'Network communication capability',
-                    'internetopen': 'Network communication capability',
-                    'ftpputfile': 'FTP upload capability',
-                    'ftpopenfile': 'FTP communication capability'
-                },
-                'urlmon.dll': {
-                    'urldownloadtofile': 'File download capability'
-                }
-            }
-            """
-            https://practicalsecurityanalytics.com/threat-hunting-with-function-imports/
-            """
+            
+            # Load MalAPI data from JSON file
+            try:
+                with open(self.config['utils']['malapi_path'], "r") as f:
+                    malapi_data = json.loads(f.read())
+            except Exception as e:
+                print(f"Error loading MalAPI database: {e}")
+                # Fallback to empty dictionary if the file can't be loaded
+                malapi_data = {}
+            
+            # Create a lookup dictionary by DLL and function name for faster access
+            # Format: {dll_name_lowercase: {function_name_lowercase: (category, description)}}
+            dll_function_map = {}
+            
+            # Transform the malapi_data for easier lookup
+            for category, functions in malapi_data.items():
+                for function_name, function_info in functions.items():
+                    # Handle both old and new format
+                    if isinstance(function_info, dict):
+                        # New format with description and DLL
+                        description = function_info.get("description", "")
+                        dll_name = function_info.get("dll", "Unknown").lower()
+                    else:
+                        # Old format (string description only)
+                        description = function_info
+                        dll_name = "unknown"
+                    
+                    # Initialize the DLL entry if it doesn't exist
+                    if dll_name not in dll_function_map:
+                        dll_function_map[dll_name] = {}
+                    
+                    # Add the function
+                    dll_function_map[dll_name][function_name.lower()] = (category, description)
+                    
+                    # Also add to a wildcard entry for functions without a specific DLL match
+                    if "unknown" not in dll_function_map:
+                        dll_function_map["unknown"] = {}
+                    dll_function_map["unknown"][function_name.lower()] = (category, description)
+            
             # Check imports for suspicious behavior
             if hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
                 for entry in pe.DIRECTORY_ENTRY_IMPORT:
@@ -122,18 +131,27 @@ class Utils:
                         if imp.name:
                             func_name = imp.name.decode().lower()
                             
-                            # Check if this is a high-risk import
-                            if dll_name in high_risk_imports and func_name in high_risk_imports[dll_name]:
+                            # Check if this function is in our database for this DLL
+                            if dll_name in dll_function_map and func_name in dll_function_map[dll_name]:
+                                category, description = dll_function_map[dll_name][func_name]
                                 suspicious_imports.append({
                                     'dll': dll_name,
                                     'function': func_name,
-                                    'note': high_risk_imports[dll_name][func_name],
+                                    'category': category,
+                                    'note': description,
+                                    'hint': imp.hint if hasattr(imp, 'hint') else 0
+                                })
+                            # Check in unknown/wildcard DLL map for function matches
+                            elif "unknown" in dll_function_map and func_name in dll_function_map["unknown"]:
+                                category, description = dll_function_map["unknown"][func_name]
+                                suspicious_imports.append({
+                                    'dll': dll_name,
+                                    'function': func_name,
+                                    'category': category,
+                                    'note': description,
                                     'hint': imp.hint if hasattr(imp, 'hint') else 0
                                 })
             
-            """
-            https://practicalsecurityanalytics.com/file-entropy/
-            """
             # Section Analysis with entropy
             for section in pe.sections:
                 section_name = section.Name.decode().rstrip('\x00')
@@ -161,13 +179,19 @@ class Utils:
                 if not is_standard:
                     sections_info[-1]['detection_notes'].append('Non-standard section name - may trigger detection')
 
-            """
-            https://practicalsecurityanalytics.com/pe-checksum/
-            """
             # Check PE Checksum
             is_valid_checksum = pe.verify_checksum()
             calculated_checksum = pe.generate_checksum()
             stored_checksum = pe.OPTIONAL_HEADER.CheckSum
+            
+            # Create malware category summary based on found imports
+            malware_categories = {}
+            if suspicious_imports:
+                for imp in suspicious_imports:
+                    category = imp.get('category', 'Unknown')
+                    if category not in malware_categories:
+                        malware_categories[category] = 0
+                    malware_categories[category] += 1
             
             info = {
                 'file_type': 'PE32+ executable' if pe.PE_TYPE == pefile.OPTIONAL_HEADER_MAGIC_PE_PLUS else 'PE32 executable',
@@ -178,6 +202,7 @@ class Utils:
                 'sections': sections_info,
                 'imports': list(set(entry.dll.decode() for entry in getattr(pe, 'DIRECTORY_ENTRY_IMPORT', []))),
                 'suspicious_imports': suspicious_imports,
+                'malware_categories': malware_categories,
                 'detection_notes': [],
                 'checksum_info': {
                     'is_valid': is_valid_checksum,
@@ -194,6 +219,18 @@ class Utils:
             if suspicious_imports:
                 info['detection_notes'].append(f'Found {len(suspicious_imports)} suspicious API imports - Review import analysis')
                 
+                # Add category-specific detection notes
+                for category, count in malware_categories.items():
+                    info['detection_notes'].append(f'Found {count} suspicious imports in category "{category}"')
+                
+                # Special detection notes for high-risk categories
+                if 'Injection' in malware_categories:
+                    info['detection_notes'].append('WARNING: Process injection capabilities detected')
+                if 'Ransomware' in malware_categories:
+                    info['detection_notes'].append('WARNING: File encryption/ransomware capabilities detected')
+                if 'Anti-Debugging' in malware_categories:
+                    info['detection_notes'].append('WARNING: Anti-analysis techniques detected')
+            
             if any(section['entropy'] > 7.2 for section in sections_info):
                 info['detection_notes'].append('High entropy sections detected - Consider entropy reduction techniques')
             
