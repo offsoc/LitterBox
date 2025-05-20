@@ -35,7 +35,7 @@ LitterBox provides a controlled sandbox environment designed for security profes
 
 The platform includes LLM-assisted analysis capabilities through the LitterBoxMCP server, offering advanced analytical insights using natural language processing technology.
 
-**Note**: While designed primarily for red teams, LitterBox can be equally valuable for blue teams by shifting perspective – using the same tools to validate defenses
+**Note**: While designed primarily for red teams, LitterBox can be equally valuable for blue teams by shifting perspective – using the same tools in their malware analysis workflows.
 
 ## Analysis Capabilities
 
