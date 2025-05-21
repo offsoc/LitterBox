@@ -85,7 +85,7 @@ class Utils:
             
             # Load MalAPI data from JSON file
             try:
-                with open(self.config['utils']['malapi_path'], "r") as f:
+                with open(self.config['utils']['malapi_path'], "r", encoding="utf-8") as f:
                     malapi_data = json.loads(f.read())
             except Exception as e:
                 print(f"Error loading MalAPI database: {e}")
