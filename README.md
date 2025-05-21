@@ -25,7 +25,7 @@
 
 ## Overview
 
-LitterBox provides a controlled sandbox environment designed for security professionals to develop and test malware payloads. This platform allows red teams to:
+LitterBox provides a controlled sandbox environment designed for security professionals to develop and test payloads. This platform allows red teams to:
 
 * Test evasion techniques against modern detection techniques
 * Validate detection signatures before field deployment

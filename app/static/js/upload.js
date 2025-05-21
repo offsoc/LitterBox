@@ -256,7 +256,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const pe = fileInfo.pe_info;
 
             // Handle suspicious imports
-            // Modified suspicious imports section inside renderFileTypeSpecificInfo function
             if (pe.suspicious_imports && pe.suspicious_imports.length > 0) {
                 elements.suspiciousImports.classList.remove('hidden');
                 elements.suspiciousImportsCount.textContent = `${pe.suspicious_imports.length} Found`;
