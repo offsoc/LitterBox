@@ -158,6 +158,13 @@ GET    /api/results/<hash>/dynamic   # Obtain dynamic analysis data
 GET    /api/results/<pid>/dynamic    # Retrieve process analysis data
 ```
 
+### HTML Report Generation
+```http
+GET    /api/report/          # Generate comprehensive HTML report (target = hash or pid)
+GET    /api/report/?download=true  # Download report as file attachment
+GET    /report/              # Download report directly (redirects to api with download=true)
+```
+
 ### Web Interface Results
 ```http
 GET    /results/<hash>/info      # View file information

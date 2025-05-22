@@ -12,6 +12,8 @@ import pefile
 import json
 from werkzeug.utils import secure_filename
 from oletools.olevba import VBA_Parser
+import datetime as dt               # you already use datetime elsewhere
+from flask import render_template     # ← add this line
 
 class Utils:
     def __init__(self, config):
@@ -975,3 +977,49 @@ class Utils:
             pass
 
         return counts
+
+    def generate_html_report(self,file_info=None,static_results=None,dynamic_results=None,pid=None):
+        """
+        Build the data, then hand it to a Jinja2 template.
+        No HTML is assembled in Python any more.
+        """
+        is_process_analysis = pid is not None and not file_info
+        analysis_type       = 'process' if is_process_analysis else 'file'
+
+        risk_score, risk_factors = self.calculate_risk(
+            analysis_type=analysis_type,
+            file_info=file_info,
+            static_results=static_results,
+            dynamic_results=dynamic_results
+        )
+        risk_level = self.get_risk_level(risk_score)
+
+        detections = {}
+        if static_results or dynamic_results:
+            detections = self.extract_detection_counts(dynamic_results or static_results)
+
+        return render_template(
+            "report.html",                      # templates/report.html
+            generated_on = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            is_process_analysis = is_process_analysis,
+            risk_score  = risk_score,
+            risk_level  = risk_level,
+            risk_factors = risk_factors,
+            detections  = detections,
+            file_info   = file_info,
+            static_results  = static_results,
+            dynamic_results = dynamic_results,
+            pid = pid,
+            format_size = self._format_size     # so the template can call it
+        )
+
+    def _format_size(self, size_bytes):
+        """Format file size to human-readable format"""
+        if size_bytes < 1024:
+            return f"{size_bytes} bytes"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.2f} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.2f} MB"
+        else:
+            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"

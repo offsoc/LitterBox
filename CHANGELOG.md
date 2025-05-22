@@ -2,21 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [v3.1.0] - 2025-05-22
+### Added
+- Implemented API endpoints for HTML report generation and retrieval
+- Added report generation functionality to Utils class
+- Introduced comprehensive HTML report template system
+- Extended Python client library with report management capabilities
+
+
 ## [v3.0.1] - 2025-05-16
 ### Added
-- New PE file suspicious Imports classification via MalApi.io db 
-- Wiki guide how to add new analyzer 
+- Implemented PE file suspicious import classification using MalApi.io database
+- Developed comprehensive analyzer implementation documentation
 
 ### Changed
-- README formats and text
-- File upload UI improved suspicious Imports
-- Directory struct
+- Enhanced README structure and content
+- Improved suspicious import visualization in file upload interface
+- Restructured directory organization for better maintainability
+
 
 ## [v3.0.0] - 2025-05-16
 ### Added
 - Python Clients to interact with LitterBox Server 
-	* `grumpycat.py` - python standalone cli client
-	* `LitterBoxMCP.py` - MCP Server to intercat with LitterBox Server
+  	* `grumpycat.py` - Standalone command-line client for direct server interaction
+  	* `LitterBoxMCP.py` - MCP server interface for LitterBox Server communication
+
 
 ## [v2.5.2] - 2025-05-09
 ### Fixed

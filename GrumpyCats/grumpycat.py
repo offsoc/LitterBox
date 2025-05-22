@@ -519,6 +519,135 @@ class LitterBoxClient:
                                             file_hash=file_hash, 
                                             threshold=threshold)
 
+    def get_report(self,target: str,download: bool = False) -> Union[str, bytes, Dict]:
+        """Get analysis report for a file or process.
+        
+        Args:
+            target: File hash or process ID
+            download: Whether to return the report as a downloadable file
+                
+        Returns:
+            HTML content as string if download=False or
+            Report content as bytes if download=True
+            
+        Raises:
+            LitterBoxAPIError: If API returns an error
+        """
+        params = {'download': 'true' if download else 'false'}
+        
+        response = self._make_request(
+            'GET',
+            f'/api/report/{target}',
+            params=params
+        )
+        
+        # If requesting the report for direct viewing, return it as a string
+        if not download:
+            return response.text
+        
+        # For download, return the raw bytes with the filename from header
+        return response.content
+
+    def download_report(self, 
+                      target: str, 
+                      output_path: Optional[str] = None) -> str:
+        """Download analysis report for a file or process and save it to disk.
+        
+        Args:
+            target: File hash or process ID
+            output_path: Optional path where to save the report.
+                If not provided, saves to current directory with filename from server.
+                
+        Returns:
+            Path where the report was saved
+            
+        Raises:
+            LitterBoxAPIError: If API returns an error
+            LitterBoxError: If unable to save the file
+        """
+        # Get report content
+        response = self._make_request(
+            'GET',
+            f'/api/report/{target}',
+            params={'download': 'true'},
+            stream=True  # Stream the response to handle large reports
+        )
+        
+        # Get filename from Content-Disposition header
+        content_disposition = response.headers.get('Content-Disposition', '')
+        filename = None
+        
+        if 'filename=' in content_disposition:
+            # Extract filename from Content-Disposition
+            import re
+            match = re.search(r'filename="([^"]+)"', content_disposition)
+            if match:
+                filename = match.group(1)
+        
+        # If filename not found in header or output_path is provided
+        if not filename:
+            # Default filename based on target
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            filename = f"Report_{target}_{timestamp}.html"
+        
+        # Determine final output path
+        if output_path:
+            # If output_path is a directory, place the file inside it
+            if os.path.isdir(output_path):
+                save_path = os.path.join(output_path, filename)
+            else:
+                # If it's a file path, use that directly
+                save_path = output_path
+        else:
+            # Save in current directory with the extracted filename
+            save_path = filename
+        
+        # Write the report to disk
+        try:
+            with open(save_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            self.logger.info(f"Report saved to {save_path}")
+            return save_path
+        except Exception as e:
+            raise LitterBoxError(f"Failed to save report: {str(e)}")
+
+    def open_report_in_browser(self, target: str) -> bool:
+        """Generate a report and open it in the default web browser.
+        
+        Args:
+            target: File hash or process ID
+                
+        Returns:
+            True if browser was opened successfully, False otherwise
+            
+        Raises:
+            LitterBoxAPIError: If API returns an error
+        """
+        try:
+            import webbrowser
+            import tempfile
+            
+            # Get the report content
+            report_content = self.get_report(target, download=False)
+            
+            # Create a temporary file to hold the report
+            fd, path = tempfile.mkstemp(suffix='.html')
+            try:
+                with os.fdopen(fd, 'w') as tmp:
+                    tmp.write(report_content)
+                
+                # Open the temp file in the default web browser
+                webbrowser.open('file://' + path)
+                self.logger.info(f"Report opened in browser from {path}")
+                return True
+            except Exception as e:
+                self.logger.error(f"Failed to open report in browser: {str(e)}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Failed to generate report: {str(e)}")
+            return False
+
     def __enter__(self):
         """Support for context manager protocol."""
         return self
@@ -540,10 +669,10 @@ Examples:
   # Analyze a running process
   %(prog)s analyze-pid 1234 --wait
   
-  # Run Doppelganger scan
+  # Run Doppelganger blender scan
   %(prog)s doppelganger-scan --type blender
   
-  # Run Doppelganger analysis
+  # Run Doppelganger FuzzyHash analysis
   %(prog)s doppelganger abc123def --type fuzzy
   
   # Create fuzzy hash database
@@ -551,6 +680,15 @@ Examples:
   
   # Get analysis results
   %(prog)s results abc123def --type static
+    
+  # Download a HTML report to the current directory
+  %(prog)s report abc123def --download
+  
+  # Download a HTML report to a specific location
+  %(prog)s report abc123def --download --output /path/to/reports/malware_report.html
+  
+  # Open a report directly in your web browser
+  %(prog)s report abc123def --browser
   
   # Clean up analysis artifacts
   %(prog)s cleanup --all
@@ -589,7 +727,15 @@ Examples:
     
     # Files summary command
     subparsers.add_parser('files', help='Get summary of all analyzed files')
-    
+
+    report_parser = subparsers.add_parser('report', help='Generate analysis report')
+    report_parser.add_argument('target', help='File hash or process ID')
+    report_parser.add_argument('--download', action='store_true', 
+                             help='Download the report instead of viewing it')
+    report_parser.add_argument('--output', help='Output path for downloaded report')
+    report_parser.add_argument('--browser', action='store_true',
+                             help='Open the report in a web browser')
+
     # Doppelganger scan command
     doppelganger_scan_parser = subparsers.add_parser('doppelganger-scan', help='Run doppelganger system scan')
     doppelganger_scan_parser.add_argument('--type', choices=['blender', 'fuzzy'], default='blender',
@@ -705,7 +851,23 @@ def main():
         elif args.command == 'files':
             result = client.get_files_summary()
             print(json.dumps(result, indent=2))
-            
+
+        elif args.command == 'report':
+            if args.browser:
+                print(f"Opening report for {args.target} in browser...")
+                success = client.open_report_in_browser(args.target)
+                if not success:
+                    print("Failed to open report in browser.")
+                    sys.exit(1)
+            elif args.download:
+                print(f"Downloading report for {args.target}...")
+                output_path = client.download_report(args.target, args.output)
+                print(f"Report downloaded and saved to: {output_path}")
+            else:
+                print(f"Generating report for {args.target}...")
+                report = client.get_report(args.target)
+                print(report)  # Prints the HTML content to terminal
+        
         elif args.command == 'doppelganger-scan':
             print(f"Running doppelganger scan with type: {args.type}")
             result = client.analyze_with_doppelganger(args.type, 'scan')

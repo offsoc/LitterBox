@@ -95,7 +95,7 @@ analysis:
 
     rededr:
       enabled: true
-      etw_wait_time: 10  # Time in seconds to wait for ETW setup
+      etw_wait_time: 15  # Time in seconds to wait for ETW setup
       tool_path: ".\\Scanners\\RedEdr\\RedEdr.exe"
       command: "{tool_path} -e --trace {process_name}"
       timeout: 120

@@ -19,9 +19,9 @@ GrumpyCats provides a comprehensive toolkit for interacting with the LitterBox m
 ## Table of Contents
 - [GrumpyCats](#grumpycats)
   - [grumpycat.py](#grumpycatpy)
+  - [Usage Examples](#usage-examples)
   - [LitterBoxMCP.py](#litterboxmcppy)
   - [Installation](#installation)
-  - [Usage Examples](#usage-examples)
   - [API Reference](#litterboxmcp-api-reference)
 ---
 
@@ -49,6 +49,7 @@ python grumpycat.py [GLOBAL_OPTIONS] <command> [COMMAND_OPTIONS]
 | `upload` | Upload file for analysis |
 | `analyze-pid` | Analyze running process |
 | `results` | Get analysis results |
+| `report` | Generate and download analysis report |
 | `files` | Get summary of all analyzed files |
 | `doppelganger-scan` | Run doppelganger system scan |
 | `doppelganger` | Run doppelganger analysis |
@@ -67,6 +68,63 @@ python grumpycat.py [GLOBAL_OPTIONS] <command> [COMMAND_OPTIONS]
 | `--no-verify-ssl` | Disable SSL verification |
 | `--proxy PROXY` | Proxy URL (e.g., http://proxy:8080) |
 
+
+## Usage Examples
+
+### Basic Analysis Workflow
+
+```bash
+# Upload and analyze a file
+grumpycat.py upload malware.exe --analysis static dynamic
+
+# Analyze a running process
+grumpycat.py analyze-pid 1234 --wait
+
+# Get analysis results
+grumpycat.py results abc123def --type static
+```
+
+### Doppelganger Analysis
+
+```bash
+# Run Doppelganger blender scan
+grumpycat.py doppelganger-scan --type blender
+
+# Run Doppelganger FuzzyHash analysis
+grumpycat.py doppelganger abc123def --type fuzzy
+
+# Create fuzzy hash database
+grumpycat.py doppelganger-db --folder /path/to/files --extensions .exe .dll
+```
+
+### Report Generation
+
+```bash
+# Generate and view an HTML report in terminal
+grumpycat.py report abc123def
+
+# Download a report to the current directory
+grumpycat.py report abc123def --download
+
+# Download a report to a specific location
+grumpycat.py report abc123def --download --output /path/to/reports/malware_report.html
+
+# Open a report directly in your web browser
+grumpycat.py report abc123def --browser
+```
+
+### Maintenance Operations
+
+```bash
+# Clean up analysis artifacts
+grumpycat.py cleanup --all
+
+# Check system health
+grumpycat.py health
+
+# Delete a payload and its results
+grumpycat.py delete abc123def
+```
 ---
 
 ## LitterBoxMCP.py
@@ -96,59 +154,13 @@ mcp install .\LitterBoxMCP.py
                     INFO     Successfully installed LitterBoxMCP in Claude app  
 ```
 
----
-
 ## Installation
 
-1. Clone or download the GrumpyCats repository
+1. Clone or download the LitterBox repository
 2. For CLI usage, install the requests library globally
 3. For MCP server usage, install all requirements listed in the LitterBoxMCP section
 4. Install the MCP server in Claude Desktop if using LLM integration
 
----
-
-## Usage Examples
-
-### Basic Analysis Workflow
-
-```bash
-# Upload and analyze a file
-grumpycat.py upload malware.exe --analysis static dynamic
-
-# Analyze a running process
-grumpycat.py analyze-pid 1234 --wait
-
-# Get analysis results
-grumpycat.py results abc123def --type static
-```
-
-### Doppelganger Analysis
-
-```bash
-# Run Doppelganger scan
-grumpycat.py doppelganger-scan --type blender
-
-# Run Doppelganger analysis
-grumpycat.py doppelganger abc123def --type fuzzy
-
-# Create fuzzy hash database
-grumpycat.py doppelganger-db --folder /path/to/files --extensions .exe .dll
-```
-
-### Maintenance Operations
-
-```bash
-# Clean up analysis artifacts
-grumpycat.py cleanup --all
-
-# Check system health
-grumpycat.py health
-
-# Delete a payload and its results
-grumpycat.py delete abc123def
-```
-
----
 
 ## LitterBoxMCP API Reference
 

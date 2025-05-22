@@ -6,11 +6,12 @@ import json
 import os
 import shutil
 from datetime import datetime
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, Response
 from .utils import Utils
 from .analyzers.manager import AnalysisManager
 from .analyzers.blender import BlenderAnalyzer
 from .analyzers.fuzzy import FuzzyHashAnalyzer
+from datetime import datetime
 
 
 def register_routes(app):
@@ -1138,11 +1139,174 @@ def register_routes(app):
         except Exception as e:
             app.logger.error(f"Error fetching file info for target {target}: {e}")
             return jsonify({'error': str(e)}), 500
-    
+        
+    @app.route('/api/report/<target>', methods=['GET'])
+    def generate_report(target):
+        """
+        Generate a comprehensive HTML report for the specified target.
+        
+        Args:
+            target (str): File hash or process ID
+        
+        Returns:
+            HTML report or error message
+        """
+        try:
+            app.logger.debug(f"Generating report for target: {target}")
+            
+            is_pid = target.isdigit()
+            file_info = None
+            static_results = None
+            dynamic_results = None
+            
+            # Get current timestamp - Fix the datetime usage
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')            
+            # Handle PID-based analysis
+            if is_pid:
+                pid = target
+                app.logger.debug(f"Processing report for PID: {pid}")
+                
+                # Validate PID exists
+                is_valid, error_msg = utils.validate_pid(pid)
+                if not is_valid:
+                    app.logger.warning(f"Invalid PID for report generation: {error_msg}")
+                    return jsonify({'error': error_msg}), 404
+                
+                # Get dynamic analysis results for the PID
+                result_folder = os.path.join(app.config['utils']['result_folder'], f'dynamic_{pid}')
+                dynamic_path = os.path.join(result_folder, 'dynamic_analysis_results.json')
+                
+                if not os.path.exists(dynamic_path):
+                    app.logger.warning(f"No dynamic analysis results found for PID {pid}")
+                    return jsonify({'error': f'No analysis results found for PID {pid}'}), 404
+                
+                dynamic_results = utils.load_json_file(dynamic_path)
+                if not dynamic_results:
+                    app.logger.error(f"Failed to load dynamic analysis results for PID {pid}")
+                    return jsonify({'error': 'Error loading analysis results'}), 500
+                
+                # Generate the report for PID-based analysis
+                html_report = utils.generate_html_report(
+                    file_info=None,
+                    static_results=None,
+                    dynamic_results=dynamic_results,
+                    pid=pid
+                )
+                
+                # Set up the report name
+                process_info = dynamic_results.get('moneta', {}).get('findings', {}).get('process_info', {})
+                process_name = process_info.get('name', f"PID_{pid}")
+                # Fix: Use already computed timestamp
+                filename = f"Report_{process_name}_{pid}_{timestamp}.html"
+                
+            # Handle file-based analysis
+            else:
+                app.logger.debug(f"Processing report for file with hash: {target}")
+                
+                # Find the file and its results
+                result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
+                if not result_path:
+                    app.logger.warning(f"No results found for hash: {target}")
+                    return jsonify({'error': 'Results not found'}), 404
+                
+                # Load file info and analysis results
+                file_info_path = os.path.join(result_path, 'file_info.json')
+                static_path = os.path.join(result_path, 'static_analysis_results.json')
+                dynamic_path = os.path.join(result_path, 'dynamic_analysis_results.json')
+                
+                if not os.path.exists(file_info_path):
+                    app.logger.warning(f"File info not found at: {file_info_path}")
+                    return jsonify({'error': 'File info not found'}), 404
+                
+                file_info = utils.load_json_file(file_info_path)
+                
+                # Load available analysis results
+                if os.path.exists(static_path):
+                    static_results = utils.load_json_file(static_path)
+                
+                if os.path.exists(dynamic_path):
+                    dynamic_results = utils.load_json_file(dynamic_path)
+                
+                # Generate the report
+                html_report = utils.generate_html_report(
+                    file_info=file_info,
+                    static_results=static_results,
+                    dynamic_results=dynamic_results,
+                    pid=None
+                )
+                
+                # Set up the report name
+                original_name = file_info.get('original_name', 'unknown')
+                file_hash = file_info.get('md5', target)
+                # Fix: Use already computed timestamp
+                filename = f"Report_{original_name}_{file_hash[:8]}_{timestamp}.html"
+            
+            # Check download parameter
+            download = request.args.get('download', 'false').lower() == 'true'
+            
+            if download:
+                # Return as downloadable file
+                response = Response(html_report, mimetype='text/html')
+                response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+                app.logger.debug(f"Returning downloadable report: {filename}")
+                return response
+            else:
+                # Return as HTML content to be displayed in browser
+                app.logger.debug("Returning HTML report for display")
+                return html_report
+                
+        except Exception as e:
+            app.logger.error(f"Error generating report: {e}")
+            app.logger.error("Traceback:", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    # Add a route for the report page that includes a viewer
+    @app.route('/report/<target>', methods=['GET'])
+    def report_page(target):
+        """
+        Redirect to the API endpoint with download=true to directly download the report
+        
+        Args:
+            target (str): File hash or process ID
+        
+        Returns:
+            Redirect to the download URL
+        """
+        try:
+            app.logger.debug(f"Redirecting to download report for target: {target}")
+            
+            # Check if the target exists
+            is_pid = target.isdigit()
+            
+            if is_pid:
+                pid = target
+                is_valid, error_msg = utils.validate_pid(pid)
+                if not is_valid:
+                    app.logger.warning(f"Invalid PID for report page: {error_msg}")
+                    return render_template('error.html', error=error_msg), 404
+                    
+                result_folder = os.path.join(app.config['utils']['result_folder'], f'dynamic_{pid}')
+                if not os.path.exists(result_folder):
+                    app.logger.warning(f"No results folder found for PID {pid}")
+                    return render_template('error.html', error=f'No analysis results found for PID {pid}'), 404
+            else:
+                result_path = utils.find_file_by_hash(target, app.config['utils']['result_folder'])
+                if not result_path:
+                    app.logger.warning(f"No results found for hash: {target}")
+                    return render_template('error.html', error='Results not found'), 404
+            
+            # Redirect to the API endpoint with download=true
+            return redirect(f'/api/report/{target}?download=true')
+            
+        except Exception as e:
+            app.logger.error(f"Error redirecting to report download: {e}")
+            return render_template('error.html', error=str(e)), 500
 
     @app.errorhandler(404)
     def page_not_found(error):
         app.logger.debug(f"Page not found: {request.path}")
         return render_template('error.html', error=f"Page not found: {request.path}"), 404
-    
+
+
     return app
+

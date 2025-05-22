@@ -195,7 +195,9 @@ function renderProcesses() {
         // Action buttons
         const viewButton = row.querySelector('[data-action="view"]');
         const deleteButton = row.querySelector('[data-action="delete"]');
-        
+        // In the renderProcesses() function, add this after setting the viewButton and deleteButton handlers
+        const reportButton = row.querySelector('[data-action="report"]');
+        if (reportButton) reportButton.onclick = () => generateProcessReport(process.pid);
         if (viewButton) viewButton.onclick = () => viewProcess(process.pid);
         if (deleteButton) deleteButton.onclick = () => showProcessDeleteWarning(process.pid);
         
@@ -286,7 +288,8 @@ function renderFiles() {
         // Action buttons
         const viewButton = row.querySelector('[data-action="view"]');
         const deleteButton = row.querySelector('[data-action="delete"]');
-        
+        const reportButton = row.querySelector('[data-action="report"]');
+        if (reportButton) reportButton.onclick = () => generateFileReport(file.md5);
         viewButton.onclick = () => viewFile(file.md5);
         deleteButton.onclick = () => showFileDeleteWarning(file.md5);
         
@@ -446,6 +449,21 @@ function toggleProcessAnalysis() {
     }
 }
 
+// Generate report for a file
+function generateFileReport(md5) {
+    // Directly download the report instead of opening in a new tab
+    window.location.href = `/api/report/${md5}?download=true`;
+}
+
+// Generate report for a process
+function generateProcessReport(pid) {
+    // Directly download the report instead of opening in a new tab
+    window.location.href = `/api/report/${pid}?download=true`;
+}
+
+// Make functions available globally
+window.generateFileReport = generateFileReport;
+window.generateProcessReport = generateProcessReport;
 
 // Make functions available globally
 window.showSummaryCleanupWarning = showSummaryCleanupWarning;
