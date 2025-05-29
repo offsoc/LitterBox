@@ -4,7 +4,7 @@ application:
   host: "127.0.0.1"
   port: 1337
   debug: false
-  version: "3.0.1"
+  version: "3.2.0"
 
 utils:
   allowed_extensions:

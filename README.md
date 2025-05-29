@@ -274,6 +274,7 @@ This project incorporates technologies from the following contributors:
 - [thefLink](https://github.com/thefLink/Hunt-Sleeping-Beacons)
 - [joe-desimone](https://github.com/joe-desimone/patriot)
 - [dobin](https://github.com/dobin/RedEdr)
+- [mr.d0x](https://malapi.io/)
 
 ## Interface
 

@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 
+## [v3.2.0] - 2025-05-29
+### Changed
+- Major code refactoring for improved efficiency and maintainability
+- Eliminated code duplication across routes, utilities, analysis manager, and Python client
+- Centralized common functionality with helper classes (RouteHelpers, FileTypeDetector, SecurityAnalyzer, RiskCalculator)
+- Enhanced error handling with consistent patterns and unified validation methods
+- Restructured AnalysisManager with focused methods and specialized validation
+- Refactored Python client removing duplicate implementations and adding helper methods
+
+### Fixed
+- Report generation bug for PID-based analysis missing process_output attribute
+
+
+
 ## [v3.1.0] - 2025-05-22
 ### Added
 - Implemented API endpoints for HTML report generation and retrieval
