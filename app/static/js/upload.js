@@ -53,7 +53,8 @@ document.addEventListener('DOMContentLoaded', function() {
         suspiciousImports: document.getElementById('suspiciousImports'),
         suspiciousImportsList: document.getElementById('suspiciousImportsList'),
         suspiciousImportsCount: document.getElementById('suspiciousImportsCount'),
-        suspiciousImportsSummary: document.getElementById('suspiciousImportsSummary')
+        suspiciousImportsSummary: document.getElementById('suspiciousImportsSummary'),
+        suspiciousImportsTitle: document.getElementById('suspiciousImportsTitle')
         
     };
 
@@ -258,31 +259,59 @@ document.addEventListener('DOMContentLoaded', function() {
             // Handle suspicious imports
             if (pe.suspicious_imports && pe.suspicious_imports.length > 0) {
                 elements.suspiciousImports.classList.remove('hidden');
-                elements.suspiciousImportsCount.textContent = `${pe.suspicious_imports.length} Found`;
                 
-                elements.suspiciousImportsList.innerHTML = pe.suspicious_imports.map(imp => `
-                    <div class="border-b border-gray-800 last:border-b-0 pb-3">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center space-x-2">
-                                <span class="text-red-500 font-mono">${imp.dll}</span>
-                                <span class="text-gray-400">→</span>
-                                <span class="text-gray-300 font-mono">${imp.function}</span>
-                                <span class="ml-2 px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded-full">[${imp.category || 'Unknown'}]</span>
+                // Check if it's a Go binary
+                const isGoBinary = pe.is_go_binary || false;
+                
+                // Update title and count with appropriate styling
+                if (isGoBinary) {
+                    elements.suspiciousImportsTitle.textContent = 'API Imports Analysis (Go Runtime)';
+                    elements.suspiciousImportsCount.className = 'px-3 py-1 text-sm bg-blue-500/10 text-blue-400 rounded-full';
+                    elements.suspiciousImportsCount.textContent = `${pe.suspicious_imports.length} Found (Go Runtime)`;
+                } else {
+                    elements.suspiciousImportsTitle.textContent = 'Suspicious Imports Analysis';
+                    elements.suspiciousImportsCount.className = 'px-3 py-1 text-sm bg-red-500/10 text-red-500 rounded-full';
+                    elements.suspiciousImportsCount.textContent = `${pe.suspicious_imports.length} Found`;
+                }
+                
+                elements.suspiciousImportsList.innerHTML = pe.suspicious_imports.map(imp => {
+                    // Use different colors for Go runtime imports
+                    const dllColor = isGoBinary ? 'text-blue-400' : 'text-red-500';
+                    const categoryBg = isGoBinary ? 'bg-blue-500/20' : 'bg-red-500/20';
+                    const categoryText = isGoBinary ? 'text-blue-400' : 'text-red-400';
+                    const borderColor = isGoBinary ? 'border-blue-900/20' : 'border-red-900/20';
+                    
+                    return `
+                        <div class="border-b border-gray-800 last:border-b-0 pb-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center space-x-2">
+                                    <span class="${dllColor} font-mono">${imp.dll}</span>
+                                    <span class="text-gray-400">→</span>
+                                    <span class="text-gray-300 font-mono">${imp.function}</span>
+                                    <span class="ml-2 px-2 py-0.5 text-xs ${categoryBg} ${categoryText} rounded-full">[${imp.category || 'Unknown'}]</span>
+                                    ${isGoBinary ? '<span class="ml-2 px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded-full">Go Runtime</span>' : ''}
+                                </div>
+                                ${imp.hint !== null && imp.hint !== undefined ? `<span class="text-xs text-gray-500">Hint: ${imp.hint}</span>` : ''}
                             </div>
-                            <span class="text-xs text-gray-500">Hint: ${imp.hint}</span>
+                            <div class="flex items-center space-x-2">
+                                <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                <span class="text-sm text-gray-400">${imp.note}</span>
+                            </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                            </svg>
-                            <span class="text-sm text-gray-400">${imp.note}</span>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
-                elements.suspiciousImportsSummary.textContent = 
-                    `Found ${pe.suspicious_imports.length} potentially suspicious imports that may indicate malicious capabilities.`;
+                // Update summary message based on Go binary detection
+                if (isGoBinary) {
+                    elements.suspiciousImportsSummary.textContent = 
+                        `Go binary detected: ${pe.suspicious_imports.length} imports found are typically part of Go runtime and are not necessarily malicious.`;
+                } else {
+                    elements.suspiciousImportsSummary.textContent = 
+                        `Found ${pe.suspicious_imports.length} potentially suspicious imports that may indicate malicious capabilities.`;
+                }
             }
 
             // Add checksum info display
@@ -292,20 +321,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 elements.calculatedChecksum.textContent = pe.checksum_info.calculated_checksum;
                 
                 // Set checksum status
-                elements.checksumStatus.className = `px-3 py-1 text-sm rounded-full ${
-                    pe.checksum_info.is_valid ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                }`;
-                elements.checksumStatus.textContent = pe.checksum_info.is_valid ? 'Valid' : 'Invalid';
+                const isGoBinary = pe.checksum_info.is_go_binary || false;
+                const isValid = pe.checksum_info.is_valid;
+                
+                if (isValid) {
+                    elements.checksumStatus.className = 'px-3 py-1 text-sm rounded-full bg-green-500/10 text-green-500';
+                    elements.checksumStatus.textContent = 'Valid';
+                } else if (isGoBinary) {
+                    elements.checksumStatus.className = 'px-3 py-1 text-sm rounded-full bg-blue-500/10 text-blue-400';
+                    elements.checksumStatus.textContent = 'Go Binary';
+                } else {
+                    elements.checksumStatus.className = 'px-3 py-1 text-sm rounded-full bg-red-500/10 text-red-500';
+                    elements.checksumStatus.textContent = 'Invalid';
+                }
                 
                 // Add checksum notes if needed
                 if (!pe.checksum_info.is_valid) {
+                    const isGoBinary = pe.checksum_info.is_go_binary || false;
+                    const noteText = isGoBinary 
+                        ? 'Go binaries typically have non-standard PE checksums - This is normal behavior'
+                        : 'Invalid checksum - Common in packed/modified payloads';
+                    const iconColor = isGoBinary ? 'text-blue-500' : 'text-yellow-500';
+                    
                     elements.checksumNotes.innerHTML = `
                         <div class="flex items-center space-x-2">
-                            <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                             </svg>
-                            <span>Invalid checksum - Common in packed/modified payloads</span>
+                            <span>${noteText}</span>
                         </div>
                     `;
                 }

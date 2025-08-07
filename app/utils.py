@@ -203,12 +203,49 @@ class SecurityAnalyzer:
         
         return dll_function_map
     
+    def _detect_go_binary(self, pe):
+        """Detect if PE is a Go binary by looking for Go runtime indicators"""
+        try:
+            # Look for Go-specific strings in sections
+            go_indicators = [
+                b'runtime.',
+                b'go.runtime',
+                b'sync.',
+                b'go.sync',
+                b'go.string',
+                b'go.func',
+                b'go.buildid',
+                b'go.buildinfo',
+                b'runtime.main',
+                b'runtime.goexit',
+                b'runtime.newproc',
+                b'runtime.mallocgc'
+            ]
+            
+            for section in pe.sections:
+                section_data = section.get_data()
+                for indicator in go_indicators:
+                    if indicator in section_data:
+                        return True
+                        
+            # Also check for typical Go section names
+            go_sections = ['.go.buildinfo', '.go.plt']
+            for section in pe.sections:
+                section_name = section.Name.decode().rstrip('\x00')
+                if section_name in go_sections:
+                    return True
+                    
+            return False
+        except Exception:
+            return False
+
     def analyze_pe_imports(self, pe):
         """Analyze PE imports for suspicious behavior"""
         suspicious_imports = []
+        is_go_binary = self._detect_go_binary(pe)
         
         if not hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
-            return suspicious_imports
+            return suspicious_imports, is_go_binary
         
         for entry in pe.DIRECTORY_ENTRY_IMPORT:
             dll_name = entry.dll.decode().lower()
@@ -228,11 +265,12 @@ class SecurityAnalyzer:
                             'function': func_name,
                             'category': category,
                             'note': description,
-                            'hint': imp.hint if hasattr(imp, 'hint') else 0
+                            'hint': imp.ordinal if hasattr(imp, 'ordinal') else None,
+                            'is_go_runtime': is_go_binary  # Add flag for Go runtime imports
                         })
                         break
         
-        return suspicious_imports
+        return suspicious_imports, is_go_binary
     
     def analyze_pe_sections(self, pe, entropy_calculator):
         """Analyze PE sections with entropy and detection notes"""
@@ -408,8 +446,10 @@ class RiskCalculator:
         if pe_info.get('checksum_info'):
             checksum = pe_info['checksum_info']
             if checksum.get('stored_checksum') != checksum.get('calculated_checksum'):
-                pe_risk += 25
-                risk_factors.append("PE checksum mismatch detected")
+                # Don't penalize Go binaries for checksum mismatches as they commonly have zero checksums
+                if not checksum.get('is_go_binary', False):
+                    pe_risk += 25
+                    risk_factors.append("PE checksum mismatch detected")
         
         return pe_risk, risk_factors
 
@@ -450,7 +490,7 @@ class Utils:
         try:
             pe = pefile.PE(filepath)
             
-            suspicious_imports = self.security_analyzer.analyze_pe_imports(pe)
+            suspicious_imports, is_go_binary = self.security_analyzer.analyze_pe_imports(pe)
             sections_info = self.security_analyzer.analyze_pe_sections(pe, self.calculate_entropy)
             
             # Check PE Checksum
@@ -475,12 +515,14 @@ class Utils:
                 'imports': list(set(entry.dll.decode() for entry in getattr(pe, 'DIRECTORY_ENTRY_IMPORT', []))),
                 'suspicious_imports': suspicious_imports,
                 'malware_categories': malware_categories,
-                'detection_notes': self._build_pe_detection_notes(is_valid_checksum, suspicious_imports, malware_categories, sections_info),
+                'detection_notes': self._build_pe_detection_notes(is_valid_checksum, suspicious_imports, malware_categories, sections_info, is_go_binary),
+                'is_go_binary': is_go_binary,
                 'checksum_info': {
                     'is_valid': is_valid_checksum,
                     'stored_checksum': hex(stored_checksum),
                     'calculated_checksum': hex(calculated_checksum),
-                    'needs_update': calculated_checksum != stored_checksum
+                    'needs_update': calculated_checksum != stored_checksum,
+                    'is_go_binary': is_go_binary
                 }
             }
                     
@@ -490,18 +532,27 @@ class Utils:
             print(f"Error analyzing PE file: {e}")
             return {'pe_info': None}
 
-    def _build_pe_detection_notes(self, is_valid_checksum, suspicious_imports, malware_categories, sections_info):
+    def _build_pe_detection_notes(self, is_valid_checksum, suspicious_imports, malware_categories, sections_info, is_go_binary=False):
         """Build detection notes for PE analysis"""
         detection_notes = []
         
         if not is_valid_checksum:
-            detection_notes.append('Invalid PE checksum - Common in modified/packed files (~83% correlation with malware)')
+            if is_go_binary:
+                detection_notes.append('Go binary with non-standard PE checksum - This is normal for Go binaries')
+            else:
+                detection_notes.append('Invalid PE checksum - Common in modified/packed files (~83% correlation with malware)')
 
         if suspicious_imports:
-            detection_notes.append(f'Found {len(suspicious_imports)} suspicious API imports - Review import analysis')
+            if is_go_binary:
+                detection_notes.append(f'Go binary detected: {len(suspicious_imports)} imports found are typically part of Go runtime - Not necessarily malicious')
+            else:
+                detection_notes.append(f'Found {len(suspicious_imports)} suspicious API imports - Review import analysis')
             
             for category, count in malware_categories.items():
-                detection_notes.append(f'Found {count} suspicious imports in category "{category}"')
+                if is_go_binary:
+                    detection_notes.append(f'Found {count} imports in category "{category}" (Go runtime related)')
+                else:
+                    detection_notes.append(f'Found {count} suspicious imports in category "{category}"')
             
             # Special detection notes for high-risk categories
             high_risk_categories = {
