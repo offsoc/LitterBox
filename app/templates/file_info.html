@@ -268,47 +268,78 @@
 
         <!-- Suspicious Imports -->
         {% if file_info.pe_info.suspicious_imports %}
+        {% set go_runtime_imports = file_info.pe_info.suspicious_imports | selectattr('is_go_runtime') | list %}
+        {% set suspicious_imports = file_info.pe_info.suspicious_imports | rejectattr('is_go_runtime') | list %}
         <div>
-            {% if file_info.pe_info.is_go_binary %}
-                <h3 class="text-sm font-medium text-gray-400 mb-3">API Imports (Go Runtime)</h3>
-                <div class="mb-3 p-3 bg-blue-500/10 rounded-lg border border-blue-900/20">
-                    <div class="flex items-center space-x-2">
-                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <span class="text-sm text-blue-300 font-medium">Go Binary Detected</span>
+            {% if file_info.pe_info.is_go_binary and go_runtime_imports %}
+                {% if suspicious_imports %}
+                    <h3 class="text-sm font-medium text-gray-400 mb-3">API Imports Analysis</h3>
+                    <div class="mb-3 p-3 bg-blue-500/10 rounded-lg border border-blue-900/20">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm text-blue-300 font-medium">Go Binary Detected</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1 ml-6">
+                            Found {{ go_runtime_imports|length }} Go runtime imports (benign) and {{ suspicious_imports|length }} potentially suspicious imports.
+                        </p>
                     </div>
-                    <p class="text-sm text-gray-400 mt-1 ml-6">
-                        These imports are typically part of the Go runtime and are not necessarily malicious. 
-                        Go binaries automatically include these system calls for memory management, threading, and OS interaction.
-                    </p>
-                </div>
+                {% else %}
+                    <h3 class="text-sm font-medium text-gray-400 mb-3">API Imports (Go Runtime)</h3>
+                    <div class="mb-3 p-3 bg-blue-500/10 rounded-lg border border-blue-900/20">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm text-blue-300 font-medium">Go Binary Detected</span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1 ml-6">
+                            These {{ go_runtime_imports|length }} imports are typically part of the Go runtime and are not necessarily malicious. 
+                            Go binaries automatically include these system calls for memory management, threading, and OS interaction.
+                        </p>
+                    </div>
+                {% endif %}
             {% else %}
                 <h3 class="text-sm font-medium text-gray-400 mb-3">Suspicious Imports</h3>
             {% endif %}
             
             <div class="space-y-4">
                 {% for dll, imports in file_info.pe_info.grouped_suspicious_imports.items() %}
-                {% if file_info.pe_info.is_go_binary %}
+                {% set dll_go_runtime_imports = imports | selectattr('is_go_runtime') | list %}
+                {% set dll_suspicious_imports = imports | rejectattr('is_go_runtime') | list %}
+                
+                {% if dll_go_runtime_imports %}
                     <div class="bg-blue-500/10 p-4 rounded-lg border border-blue-900/20">
                         <h4 class="text-blue-400 font-mono mb-2">{{ dll }} <span class="ml-2 px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded-full">Go Runtime</span></h4>
                         <div class="space-y-2">
-                            {% for import in imports %}
+                            {% for import in dll_go_runtime_imports %}
                             <div class="pl-4 border-l-2 border-blue-900/20">
-                                <p class="text-gray-300 font-mono">{{ import.function }} <span class="text-blue-300">[{{ import.category }}]</span></p>
+                                <p class="text-gray-300 font-mono">{{ import.function }} <span class="text-blue-300">[{{ import.category }}]</span>
+                                    {% if import.hint is not none %}
+                                        <span class="text-xs text-gray-500 ml-2" title="Import hint: suggested index in DLL export table">Hint: {{ import.hint }}</span>
+                                    {% endif %}
+                                </p>
                                 <p class="text-sm text-gray-400 mt-1">{{ import.note }}</p>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
-                {% else %}
+                {% endif %}
+                
+                {% if dll_suspicious_imports %}
                     <div class="bg-red-500/10 p-4 rounded-lg border border-red-900/20">
                         <h4 class="text-red-400 font-mono mb-2">{{ dll }}</h4>
                         <div class="space-y-2">
-                            {% for import in imports %}
+                            {% for import in dll_suspicious_imports %}
                             <div class="pl-4 border-l-2 border-red-900/20">
-                                <p class="text-gray-300 font-mono">{{ import.function }} <span class="text-red-300">[{{ import.category }}]</span></p>
+                                <p class="text-gray-300 font-mono">{{ import.function }} <span class="text-red-300">[{{ import.category }}]</span>
+                                    {% if import.hint is not none %}
+                                        <span class="text-xs text-gray-500 ml-2" title="Import hint: suggested index in DLL export table">Hint: {{ import.hint }}</span>
+                                    {% endif %}
+                                </p>
                                 <p class="text-sm text-gray-400 mt-1">{{ import.note }}</p>
                             </div>
                             {% endfor %}

@@ -275,11 +275,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 elements.suspiciousImportsList.innerHTML = pe.suspicious_imports.map(imp => {
-                    // Use different colors for Go runtime imports
-                    const dllColor = isGoBinary ? 'text-blue-400' : 'text-red-500';
-                    const categoryBg = isGoBinary ? 'bg-blue-500/20' : 'bg-red-500/20';
-                    const categoryText = isGoBinary ? 'text-blue-400' : 'text-red-400';
-                    const borderColor = isGoBinary ? 'border-blue-900/20' : 'border-red-900/20';
+                    // Check if this specific import is a Go runtime import
+                    const isGoRuntimeImport = imp.is_go_runtime || false;
+                    
+                    // Use different colors based on whether it's actually a Go runtime import
+                    const dllColor = isGoRuntimeImport ? 'text-blue-400' : 'text-red-500';
+                    const categoryBg = isGoRuntimeImport ? 'bg-blue-500/20' : 'bg-red-500/20';
+                    const categoryText = isGoRuntimeImport ? 'text-blue-400' : 'text-red-400';
                     
                     return `
                         <div class="border-b border-gray-800 last:border-b-0 pb-3">
@@ -289,9 +291,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <span class="text-gray-400">→</span>
                                     <span class="text-gray-300 font-mono">${imp.function}</span>
                                     <span class="ml-2 px-2 py-0.5 text-xs ${categoryBg} ${categoryText} rounded-full">[${imp.category || 'Unknown'}]</span>
-                                    ${isGoBinary ? '<span class="ml-2 px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded-full">Go Runtime</span>' : ''}
+                                    ${isGoRuntimeImport ? '<span class="ml-2 px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded-full">Go Runtime</span>' : ''}
                                 </div>
-                                ${imp.hint !== null && imp.hint !== undefined ? `<span class="text-xs text-gray-500">Hint: ${imp.hint}</span>` : ''}
+                                ${imp.hint !== null && imp.hint !== undefined ? `<span class="text-xs text-gray-500" title="Import hint: suggested index in DLL export table">Hint: ${imp.hint}</span>` : ''}
                             </div>
                             <div class="flex items-center space-x-2">
                                 <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,10 +306,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                 }).join('');
 
-                // Update summary message based on Go binary detection
-                if (isGoBinary) {
-                    elements.suspiciousImportsSummary.textContent = 
-                        `Go binary detected: ${pe.suspicious_imports.length} imports found are typically part of Go runtime and are not necessarily malicious.`;
+                // Update summary message based on actual Go runtime imports
+                const goRuntimeCount = pe.suspicious_imports.filter(imp => imp.is_go_runtime).length;
+                const suspiciousCount = pe.suspicious_imports.length - goRuntimeCount;
+                
+                if (isGoBinary && goRuntimeCount > 0) {
+                    if (suspiciousCount > 0) {
+                        elements.suspiciousImportsSummary.textContent = 
+                            `Go binary detected: ${goRuntimeCount} Go runtime imports (benign) and ${suspiciousCount} potentially suspicious imports found.`;
+                    } else {
+                        elements.suspiciousImportsSummary.textContent = 
+                            `Go binary detected: ${goRuntimeCount} Go runtime imports found - these are typically benign.`;
+                    }
                 } else {
                     elements.suspiciousImportsSummary.textContent = 
                         `Found ${pe.suspicious_imports.length} potentially suspicious imports that may indicate malicious capabilities.`;

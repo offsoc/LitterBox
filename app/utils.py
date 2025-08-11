@@ -204,38 +204,75 @@ class SecurityAnalyzer:
         return dll_function_map
     
     def _detect_go_binary(self, pe):
-        """Detect if PE is a Go binary by looking for Go runtime indicators"""
+        """Detect if PE is a Go binary by looking for highly specific Go runtime indicators"""
         try:
-            # Look for Go-specific strings in sections
-            go_indicators = [
-                b'runtime.',
-                b'go.runtime',
-                b'sync.',
-                b'go.sync',
-                b'go.string',
-                b'go.func',
-                b'go.buildid',
-                b'go.buildinfo',
-                b'runtime.main',
-                b'runtime.goexit',
-                b'runtime.newproc',
-                b'runtime.mallocgc'
+            # First, explicitly exclude Rust binaries to prevent false positives
+            rust_indicators = [
+                b'rustc',
+                b'rust_begin_unwind',
+                b'rust_panic',
+                b'rust_oom',
+                b'__rust_',
+                b'.rustc_info',
+                b'cargo',
+                b'rustup'
             ]
             
+            # Check for Rust indicators - if found, definitely not Go
             for section in pe.sections:
-                section_data = section.get_data()
-                for indicator in go_indicators:
-                    if indicator in section_data:
-                        return True
-                        
-            # Also check for typical Go section names
+                try:
+                    section_data = section.get_data()
+                    for rust_indicator in rust_indicators:
+                        if rust_indicator in section_data:
+                            return False  # Definitely not Go if Rust indicators found
+                except Exception:
+                    continue
+            
+            # Check for Go-specific section names (highest confidence)
             go_sections = ['.go.buildinfo', '.go.plt']
             for section in pe.sections:
                 section_name = section.Name.decode().rstrip('\x00')
                 if section_name in go_sections:
                     return True
-                    
+            
+            # Look for highly Go-specific strings that are unlikely to appear in other languages
+            # These are very specific to Go's runtime and build system
+            high_confidence_indicators = [
+                b'go.buildinfo',      # Go build info section content
+                b'runtime.main',      # Go's main runtime function
+                b'runtime.goexit',    # Go's goroutine exit function  
+                b'runtime.newproc',   # Go's process creation
+                b'runtime.mallocgc',  # Go's garbage collector malloc
+                b'go.string.',        # Go string type prefix
+                b'go.func.',          # Go function type prefix
+                b'go.itab.',          # Go interface table prefix
+                b'go.mod',            # Go module information
+                b'runtime.systemstack', # Go system stack function
+                b'go:linkname',       # Go linkname directive
+                b'go:nosplit',        # Go nosplit directive
+                b'go:noescape',       # Go noescape directive
+                b'runtime.schedt',    # Go scheduler type
+                b'runtime.g',         # Go goroutine type
+                b'runtime.m'          # Go machine type
+            ]
+            
+            # Count how many highly specific indicators we find
+            go_indicator_count = 0
+            for section in pe.sections:
+                try:
+                    section_data = section.get_data()
+                    for indicator in high_confidence_indicators:
+                        if indicator in section_data:
+                            go_indicator_count += 1
+                            # If we find multiple highly specific indicators, it's very likely Go
+                            if go_indicator_count >= 2:
+                                return True
+                except Exception:
+                    continue
+            
+            # Single indicator is not enough to be confident (could be false positive)
             return False
+            
         except Exception:
             return False
 
@@ -246,6 +283,27 @@ class SecurityAnalyzer:
         
         if not hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
             return suspicious_imports, is_go_binary
+        
+        # Define Go runtime imports that are typically benign
+        go_runtime_imports = {
+            'kernel32.dll': {
+                'addvectoredcontinuehandler', 'addvectoredexceptionhandler', 'closehandle',
+                'createeventa', 'createiocompletionport', 'createthread', 'createwaitabletimerexw',
+                'deletecriticalsection', 'duplicatehandle', 'entercriticalsection', 'exitprocess',
+                'freeenvironmentstringsw', 'getconsolemode', 'getcurrentthreadid', 'getenvironmentstringsw',
+                'geterrormode', 'getlasterror', 'getprocaddress', 'getprocessaffinitymask',
+                'getqueuedcompletionstatusex', 'getstdhandle', 'getsystemdirectorya', 'getsysteminfo',
+                'getthreadcontext', 'initializecriticalsection', 'isdbcsleadbyteex', 'leavecriticalsection',
+                'loadlibraryexw', 'loadlibraryw', 'multibytetowidechar', 'postqueuedcompletionstatus',
+                'raisefailfastexception', 'resumethread', 'rtllookupfunctionentry', 'rtlvirtualunwind',
+                'setconsolectrlhandler', 'seterrormode', 'setevent', 'setprocesspriorityboost',
+                'setthreadcontext', 'setunhandledexceptionfilter', 'setwaitabletimer', 'sleep',
+                'suspendthread', 'switchtothread', 'tlsalloc', 'tlsgetvalue', 'virtualalloc',
+                'virtualfree', 'virtualprotect', 'virtualquery', 'waitformultipleobjects',
+                'waitforsingleobject', 'wergetflags', 'wersetflags', 'widechartomultibyte',
+                'writeconsolew', 'writefile'
+            }
+        }
         
         for entry in pe.DIRECTORY_ENTRY_IMPORT:
             dll_name = entry.dll.decode().lower()
@@ -260,13 +318,38 @@ class SecurityAnalyzer:
                 for lookup_dll in [dll_name, "unknown"]:
                     if lookup_dll in self.dll_function_map and func_name in self.dll_function_map[lookup_dll]:
                         category, description = self.dll_function_map[lookup_dll][func_name]
+                        
+                        # Extract hint value from PE import table
+                        # imp.hint contains the actual hint value from the PE structure
+                        # imp.ordinal is only set for imports by ordinal (rare)
+                        hint_value = None
+                        if hasattr(imp, 'import_by_ordinal') and imp.import_by_ordinal:
+                            # Import by ordinal - show the ordinal value
+                            hint_value = imp.ordinal if hasattr(imp, 'ordinal') and imp.ordinal is not None else None
+                        else:
+                            # Import by name - show the hint value if available and meaningful
+                            if hasattr(imp, 'hint') and imp.hint is not None:
+                                # Go binaries often set all hints to 0, which is not meaningful
+                                if is_go_binary and imp.hint == 0:
+                                    hint_value = None  # Don't show "Hint: 0" for Go binaries
+                                else:
+                                    hint_value = imp.hint
+                        
+                        # Determine if this is actually a Go runtime import (only for Go binaries)
+                        is_go_runtime_import = False
+                        if is_go_binary:
+                            is_go_runtime_import = (
+                                dll_name in go_runtime_imports and 
+                                func_name in go_runtime_imports[dll_name]
+                            )
+                        
                         suspicious_imports.append({
                             'dll': dll_name,
                             'function': func_name,
                             'category': category,
                             'note': description,
-                            'hint': imp.ordinal if hasattr(imp, 'ordinal') else None,
-                            'is_go_runtime': is_go_binary  # Add flag for Go runtime imports
+                            'hint': hint_value,
+                            'is_go_runtime': is_go_runtime_import  # Only true for actual Go runtime imports
                         })
                         break
         
